@@ -1,0 +1,131 @@
+generator client {
+  provider = "prisma-client-js"
+  output = "../src/generated/client"
+}
+datasource db {
+  provider = "sqlite"
+  url = env("DATABASE_URL")
+}
+model UserSettings {
+  id String @id
+  settingsJson String
+  updatedAt DateTime @updatedAt
+}
+model LiveCache {
+  key String @id
+  snapshotJson String
+  updatedAt DateTime @updatedAt
+}
+model SettingsChange {
+  id String @id
+  beforeJson String
+  afterJson String
+  createdAt DateTime @default(now())
+}
+model Token {
+  mint String @id
+  symbol String
+  name String
+  metadataJson String
+  firstSeenAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+model Scan {
+  id String @id
+  tokenMint String
+  scanMode String
+  status String
+  startedAt DateTime
+  completedAt DateTime
+  riskScore Float
+  confidenceScore Float
+  verdict String
+  criticalVetoCount Int
+  reportJson String
+  appVersion String
+  scoringVersion String
+  @@index([tokenMint])
+  @@index([completedAt])
+}
+model Evidence {
+  id String @id
+  scanId String
+  provider String
+  sourceType String
+  content String
+  rawJson String
+  confidence Float
+  fetchedAt DateTime
+  @@index([scanId])
+}
+model VetoFinding {
+  id String @id
+  scanId String
+  vetoCode String
+  triggered Boolean
+  explanation String
+  evidenceIdsJson String
+  confidence Float
+  reviewedAt DateTime?
+  reviewedNote String?
+  createdAt DateTime @default(now())
+  @@index([scanId])
+}
+model ScoreContribution {
+  id String @id
+  scanId String
+  category String
+  ruleId String
+  points Float
+  maxCategoryPoints Float
+  explanation String
+  evidenceIdsJson String
+  confidence Float
+  @@index([scanId])
+}
+model ProviderSnapshot {
+  id String @id
+  scanId String
+  provider String
+  status String
+  rawResponseJson String
+  normalizedResponseJson String
+  errorJson String
+  fetchedAt DateTime
+  expiresAt DateTime
+  @@index([scanId])
+}
+model WatchlistItem {
+  id String @id
+  tokenMint String @unique
+  isActive Boolean @default(false)
+  scanIntervalSeconds Int @default(0)
+  createdAt DateTime @default(now())
+}
+model Alert {
+  id String @id
+  tokenMint String
+  scanId String
+  severity String
+  title String
+  message String
+  createdAt DateTime @default(now())
+  @@index([tokenMint])
+}
+model LpPositionProfile {
+  id String @id
+  tokenMint String
+  pair String
+  protocol String
+  lowerPrice Float
+  upperPrice Float
+  currentPriceManual Float
+  amountUsd Float
+  targetHorizonHours Float
+  maxLossPercent Float
+  notes String
+  isActive Boolean @default(false)
+  createdAt DateTime @default(now())
+  @@index([tokenMint])
+}

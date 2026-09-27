@@ -1,0 +1,44 @@
+appId: com.dlmmsentinel.desktop
+productName: DLMM Sentinel
+executableName: DLMM Sentinel
+copyright: Copyright © 2026 Local User Build
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**/*
+  - package.json
+  - src/generated/client/**/*
+extraResources:
+  - from: prisma/migrations
+    to: migrations
+  - from: build/icons/256.png
+    to: icon.png
+asarUnpack:
+  - src/generated/client/**/*
+win:
+  target: nsis
+  icon: build/icon.ico
+  signtoolOptions:
+    publisherName: Local User Build
+  signExecutable: false
+  signAndEditExecutable: true
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: DLMM Sentinel
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  runAfterFinish: true
+  installerLanguages:
+    - ru_RU
+  deleteAppDataOnUninstall: false
+mac:
+  icon: build/icon.icns
+  target: dmg
+linux:
+  icon: build/icons
+  target: AppImage

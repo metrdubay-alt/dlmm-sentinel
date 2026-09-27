@@ -1,0 +1,1 @@
+CREATE TABLE "LiveCache" ("key" TEXT NOT NULL PRIMARY KEY, "snapshotJson" TEXT NOT NULL, "updatedAt" DATETIME NOT NULL);

@@ -1,0 +1,36 @@
+# Dependencies and generated output
+node_modules/
+dist/
+release/
+src/generated/
+test-results/
+playwright-report/
+.local/
+output/
+
+# Local settings, credentials and databases
+.env
+.env.*
+!.env.example
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.log
+*.enc
+*.pem
+*.key
+
+# Local research, screenshots and user-specific diagnostics
+/docs/
+/scripts/*
+!/scripts/build.ts
+!/scripts/create-demo-db.ts
+!/scripts/dev.ts
+!/scripts/generate-icons.ts
+!/scripts/verify-build.ts
+*temp.mjs
+*temp.ts
+*temp.txt
+.DS_Store
+Thumbs.db
