@@ -142,8 +142,11 @@ export function PoolPanel({
                   </th>
                   <th>TVL</th>
                   {meteora && <th>Active TVL</th>}
-                  {meteora && <th>Bin</th>}
-                  <th>Fee</th>
+                  {meteora && (
+                    <th title="Изменение среднего объёма в минуту: последние 5 минут относительно предыдущих 25 минут">
+                      Δ объёмов торгов
+                    </th>
+                  )}
                   {meteora && <th>Dynamic Fee</th>}
                   <th>Объём 5м</th>
                   {meteora && (
@@ -151,11 +154,9 @@ export function PoolPanel({
                       <th>$/мин · 5м</th>
                       <th>Объём 10м</th>
                       <th>Объём 30м</th>
-                      <th>Δ темпа</th>
                     </>
                   )}
                   <th>Объём 1ч</th>
-                  <th>Статус</th>
                 </tr>
               </thead>
               <tbody>
@@ -193,8 +194,12 @@ export function PoolPanel({
                         <small>{p.dex}</small>
                         <small>
                           Fee {pct(p.feePct)}
+                          {p.feeSource === "name" ? " *" : ""}
                           {p.binStep != null ? ` · Bin ${p.binStep}` : ""}
                         </small>
+                        {p.issue && (
+                          <small className="pool-status">{p.issue}</small>
+                        )}
                       </td>
                       <td
                         className={
@@ -232,11 +237,23 @@ export function PoolPanel({
                       </td>
                       <td>{usd(p.tvlUsd)}</td>
                       {meteora && <td>{usd(p.activeTvlUsd ?? null)}</td>}
-                      {meteora && <td>{p.binStep ?? "—"}</td>}
-                      <td>
-                        {pct(p.feePct)}
-                        {p.feeSource === "name" ? " *" : ""}
-                      </td>
+                      {meteora && (
+                        <td
+                          title="Средний объём в минуту за последние 5 минут / средний объём в минуту за предыдущие 25 минут − 1, в процентах"
+                          style={{
+                            color:
+                              p.volumeMomentumPct == null
+                                ? undefined
+                                : p.volumeMomentumPct >= 0
+                                  ? "#86efac"
+                                  : "#fca5a5",
+                          }}
+                        >
+                          {p.volumeMomentumPct == null
+                            ? "—"
+                            : `${p.volumeMomentumPct.toLocaleString("ru-RU", { maximumFractionDigits: 0, signDisplay: "exceptZero" })}%`}
+                        </td>
+                      )}
                       {meteora && <td>{pct(p.dynamicFeePct ?? null)}</td>}
                       <td>{usd(p.sum5mUsd)}</td>
                       {meteora && (
@@ -246,26 +263,9 @@ export function PoolPanel({
                           </td>
                           <td>{usd(p.sum10mUsd ?? null)}</td>
                           <td>{usd(p.sum30mUsd ?? null)}</td>
-                          <td
-                            style={{
-                              color:
-                                p.volumeMomentumPct == null
-                                  ? undefined
-                                  : p.volumeMomentumPct >= 0
-                                    ? "#86efac"
-                                    : "#fca5a5",
-                            }}
-                          >
-                            {pct(p.volumeMomentumPct ?? null)}
-                          </td>
                         </>
                       )}
                       <td>{usd(p.sum1hUsd)}</td>
-                      <td className="pool-status">
-                        {p.tvlUsd != null && p.tvlUsd <= 1000
-                          ? "TVL ≤ $1 000"
-                          : p.issue || "OK"}
-                      </td>
                     </tr>
                   );
                 })}
