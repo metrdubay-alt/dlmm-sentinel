@@ -31,3 +31,15 @@ assert.equal(icns.readUInt32BE(4), icns.length);
 console.log(
   "Проверены renderer/main/preload, Prisma, 10 файлов иконок и параметры NSIS.",
 );
+
+const main = await readFile("dist/main/main.cjs", "utf8");
+assert(
+  main.includes('require("../../src/generated/client/index.js")'),
+  "Prisma must remain an external module beside its native engine",
+);
+assert(
+  !main.includes("// src/generated/client/runtime/library.js"),
+  "Prisma runtime must not be bundled into main.cjs",
+);
+if (process.platform === "win32")
+  await access("src/generated/client/query_engine-windows.dll.node");

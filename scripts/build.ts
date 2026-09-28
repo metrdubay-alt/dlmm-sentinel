@@ -11,8 +11,8 @@ await build({
     {
       name: "prisma-path",
       setup(b) {
-        b.onResolve({ filter: /generated\/client$/ }, () => ({
-          path: "../../src/generated/client",
+        b.onResolve({ filter: /generated\/client(?:\/index\.js)?$/ }, () => ({
+          path: "../../src/generated/client/index.js",
           external: true,
         }));
       },

@@ -9,6 +9,7 @@ files:
   - dist/**/*
   - package.json
   - src/generated/client/**/*
+  - "!src/generated/client/**/*.tmp*"
 extraResources:
   - from: prisma/migrations
     to: migrations
