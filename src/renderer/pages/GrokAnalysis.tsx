@@ -1,3 +1,7 @@
+import {
+  isTransferFeeFlag,
+  withoutTransferFeeRate,
+} from "../../shared/analysis/grok-social-display";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, dateText } from "../lib/api";
 import {
@@ -52,6 +56,10 @@ export function GrokAnalysis({
         ? r.grok
         : null,
     answer = result?.answer;
+  const redFlags =
+    answer?.redFlags.filter((f) => !isTransferFeeFlag(f.text)) ?? [];
+  const greenFlags =
+    answer?.greenFlags.filter((f) => !isTransferFeeFlag(f.text)) ?? [];
   const link = (url: string, i: number) => (
     <button
       className="text-button"
@@ -118,26 +126,28 @@ export function GrokAnalysis({
               ? "Grok: недостаточно данных для балла"
               : `${answer.score} / 100 · Grok`}
           </h3>
-          {answer.description.split(/\n\s*\n/).map((paragraph, index) => (
-            <p key={index}>{paragraph}</p>
-          ))}
+          {withoutTransferFeeRate(answer.description)
+            .split(/\n\s*\n/)
+            .map((paragraph, index) => (
+              <p key={index}>{paragraph}</p>
+            ))}
           {answer.narrativeDetails && (
             <div aria-label="Разбор нарратива">
               <h3>Суть нарратива</h3>
               <p style={{ whiteSpace: "pre-wrap" }}>
-                {answer.narrativeDetails.essence}
+                {withoutTransferFeeRate(answer.narrativeDetails.essence)}
               </p>
               <h3>Кто подхватил</h3>
               <p style={{ whiteSpace: "pre-wrap" }}>
-                {answer.narrativeDetails.adoption}
+                {withoutTransferFeeRate(answer.narrativeDetails.adoption)}
               </p>
               <h3>Актуальность</h3>
               <p style={{ whiteSpace: "pre-wrap" }}>
-                {answer.narrativeDetails.momentum}
+                {withoutTransferFeeRate(answer.narrativeDetails.momentum)}
               </p>
             </div>
           )}
-          <p>{answer.scoreReason}</p>
+          <p>{withoutTransferFeeRate(answer.scoreReason)}</p>
           <p>
             Нарратив:{" "}
             <b>
@@ -159,10 +169,10 @@ export function GrokAnalysis({
             </button>
           </p>
 
-          {!!answer.redFlags.length && (
+          {!!redFlags.length && (
             <>
               <h3>Red flags</h3>
-              {answer.redFlags.map((f, i) => (
+              {redFlags.map((f, i) => (
                 <div key={i}>
                   <p className="amber-text">{f.text}</p>
                   <div className="button-row">{f.sources.map(link)}</div>
@@ -170,10 +180,10 @@ export function GrokAnalysis({
               ))}
             </>
           )}
-          {!!answer.greenFlags.length && (
+          {!!greenFlags.length && (
             <>
               <h3>Green flags</h3>
-              {answer.greenFlags.map((f, i) => (
+              {greenFlags.map((f, i) => (
                 <div key={i}>
                   <p>{f.text}</p>
                   <div className="button-row">{f.sources.map(link)}</div>

@@ -1,3 +1,4 @@
+import { numericProfilesSchema, defaultNumericProfiles } from "../analysis/numeric-profiles";
 import { z } from "zod";
 import { prospectsRevisionSchema } from "../analysis/prospects";
 import bs58 from "bs58";
@@ -159,6 +160,7 @@ export const positionSchema = z
 export type Position = z.infer<typeof positionSchema>;
 export const settingsSchema = z
   .object({
+    numericProfiles: numericProfilesSchema.default(defaultNumericProfiles),
     demoMode: z.boolean(),
     liveMeteora: z.boolean().default(true),
     liveGmgn: z.boolean().default(true),
@@ -181,6 +183,7 @@ export const settingsSchema = z
   .strict();
 export type Settings = z.infer<typeof settingsSchema>;
 export const defaultSettings: Settings = {
+  numericProfiles: defaultNumericProfiles(),
   demoMode: true,
   liveMeteora: true,
   liveGmgn: true,

@@ -38,12 +38,14 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
           new Response(
             mode === "limit"
               ? '<main><div role="alert">You have reached your usage limit. Try again later.</div></main>'
-              : `<main><textarea placeholder="Ask Grok (AI agent)"></textarea><button aria-label="Grok something">Send</button><div id="chat"></div><script>
+              : `<main><textarea disabled readonly placeholder="Ask Grok (AI agent)"></textarea><button aria-label="Grok something">Send</button><div id="chat"></div><script>
+  setTimeout(()=>{document.querySelector('textarea').disabled=false},1800);
+  setTimeout(()=>{document.querySelector('textarea').readOnly=false},2400);
   const t=document.querySelector('textarea');t.focus=()=>{throw new Error('Hidden editor must not require focus')};let sent=0;
   document.querySelector('button').addEventListener('click',()=>{sent++;document.body.dataset.sent=String(sent);const prompt=t.value;t.value='';document.querySelector('#chat').textContent=prompt;
   if(${JSON.stringify(mode)}==='wait')return;
   const sample=JSON.parse(prompt.split('по этой форме: ')[1].split('\\nДля каждого')[0]);
-  const answer={...sample,narrativeDetails:{essence:'ДЕМО: идея и механизм комиссий',adoption:'ДЕМО: два независимых автора и проекты',momentum:'ДЕМО: интерес растёт за 7 дней'},discoveredProfile:{handle:'example',sources:['https://x.com/example/status/123']},tokenSymbol:'DEMO',description:'ДЕМО-ДАННЫЕ: найден независимый интерес',score:62,scoreReason:'Оценка Grok по тестовым источникам',narrative:'stable',sources:['https://x.com/example/status/123'],redFlags:[{text:'ДЕМО: повторяющиеся промо-посты',sources:['https://x.com/example/status/123']}]};
+  const answer={...sample,narrativeDetails:{essence:'ДЕМО: идея и механизм комиссий',adoption:'ДЕМО: два независимых автора и проекты',momentum:'ДЕМО: интерес растёт за 7 дней'},discoveredProfile:{handle:'example',sources:['https://x.com/example/status/123']},tokenSymbol:'DEMO',description:'ДЕМО-ДАННЫЕ: найден независимый интерес',score:62,scoreReason:'Оценка Grok по тестовым источникам',narrative:'stable',sources:['https://x.com/example/status/123'],redFlags:[{text:'3% transfer tax на все трансферы $WOW',sources:['https://example.com/fee']},{text:'ДЕМО: повторяющиеся промо-посты',sources:['https://x.com/example/status/123']}]};
   const block=document.createElement('div');const content=document.createElement('pre');content.textContent=JSON.stringify(answer);content.innerHTML=content.innerHTML.replace('независимый интерес','независимый <span style="display:block">интерес</span>');block.append(content);const actions=document.createElement('div');actions.innerHTML='<button aria-label="Copy text">Copy</button><button aria-label="Regenerate">Regenerate</button>';block.append(actions);document.querySelector('#chat').append(block);
   });</script></main>`,
             { headers: { "content-type": "text/html; charset=utf-8" } },
@@ -97,6 +99,11 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
     await expect(
       page.getByText("ДЕМО: повторяющиеся промо-посты", { exact: true }),
     ).toBeVisible();
+    await expect(
+      page
+        .locator(".grok-analysis .amber-text")
+        .filter({ hasText: "transfer tax" }),
+    ).toHaveCount(0);
     await expect(
       page.getByRole("heading", { name: "Суть нарратива", exact: true }),
     ).toBeVisible();

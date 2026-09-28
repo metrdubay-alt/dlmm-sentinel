@@ -29,10 +29,12 @@ export const GROK_STATE_SCRIPT = String.raw`(() => {
  if(/(?:reached|hit|exceeded).{0,60}(?:limit|quota)|rate.limit|too many requests|лимит.{0,50}(?:исчерпан|достигнут)|(?:исчерпан|достигнут).{0,50}лимит/i.test(notices)||/(?:^|\n)(?:You(?:'ve| have) (?:reached|hit)|Usage limit|Rate limit|Вы достигли|Лимит исчерпан)/i.test(body))blocked='Лимит Grok исчерпан. Повторите после восстановления лимита.';
  else if(/verify.{0,30}human|captcha|подтвердите.{0,30}человек/i.test(notices)||[...document.querySelectorAll('iframe[title]')].some(e=>visible(e)&&/captcha|challenge/i.test(e.title)))blocked='Grok требует проверку. Откройте Grok кнопкой входа и завершите её.';
  else if(!editors.length&&(/sign in|log in|войти/i.test(notices)||[...document.querySelectorAll('a[href*="/login"],a[href*="/i/flow/login"]')].some(visible)))blocked='В сессии приложения требуется вход в X. Откройте X кнопкой входа.';
- return {editorCount:editors.length,value:editors[0]?.value??'',copies:copies.length,stop,answer:answer.slice(0,80001),body:body.slice(0,100000),blocked};
+ const editorReady=editors.length===1&&!editors[0].disabled&&!editors[0].readOnly&&editors[0].getAttribute('aria-disabled')!=='true';
+ return {editorCount:editors.length,editorReady,value:editors[0]?.value??'',copies:copies.length,stop,answer:answer.slice(0,80001),body:body.slice(0,100000),blocked};
 })()`;
 type State = {
   editorCount: number;
+  editorReady: boolean;
   value: string;
   copies: number;
   stop: boolean;
@@ -109,12 +111,16 @@ export class GrokBrowser extends XBrowser {
         this.check(win);
         observed = await win.webContents.executeJavaScript(GROK_STATE_SCRIPT);
         if (observed!.blocked) throw new Error(observed!.blocked);
-        if (observed!.editorCount === 1) break;
+        if (observed!.editorReady) break;
         await new Promise((r) => setTimeout(r, 1000));
       }
       if (!observed || observed.editorCount !== 1)
         throw new Error(
           "Поле Grok не найдено. Откройте Grok кнопкой входа для проверки.",
+        );
+      if (!observed.editorReady)
+        throw new Error(
+          "Поле Grok пока недоступно для ввода. Дождитесь загрузки Grok и повторите анализ.",
         );
       if (observed.copies || observed.value.trim())
         throw new Error(
@@ -125,7 +131,7 @@ export class GrokBrowser extends XBrowser {
       this.check(win);
       const prompt = buildGrokPrompt(context);
       const filled = await win.webContents.executeJavaScript(
-        `(() => {const u=new URL(location.href);if(u.origin!=="https://x.com"||u.pathname!=="/i/grok")return false;const nodes=[...document.querySelectorAll('textarea')].filter(e=>e.getClientRects().length&&getComputedStyle(e).visibility!=='hidden');if(nodes.length!==1||nodes[0].value.trim()||nodes[0].disabled)return false;const setter=Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value')?.set;if(!setter)return false;setter.call(nodes[0],${JSON.stringify(prompt)});nodes[0].dispatchEvent(new Event('input',{bubbles:true}));return true;})()`,
+        `(() => {const u=new URL(location.href);if(u.origin!=="https://x.com"||u.pathname!=="/i/grok")return false;const nodes=[...document.querySelectorAll('textarea')].filter(e=>e.getClientRects().length&&getComputedStyle(e).visibility!=='hidden');if(nodes.length!==1||nodes[0].value.trim()||nodes[0].disabled||nodes[0].readOnly||nodes[0].getAttribute('aria-disabled')==='true')return false;const setter=Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value')?.set;if(!setter)return false;setter.call(nodes[0],${JSON.stringify(prompt)});nodes[0].dispatchEvent(new Event('input',{bubbles:true}));return true;})()`,
       );
       if (!filled)
         throw new Error("Поле запроса Grok изменилось. Запрос не отправлен.");

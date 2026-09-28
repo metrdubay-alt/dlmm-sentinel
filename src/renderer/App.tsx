@@ -1,3 +1,4 @@
+import { ProfilesPage } from "./pages/ProfilesPage";
 import { SourceConnections } from "./pages/SourceConnections";
 import { WorkspacePage } from "./pages/WorkspacePage";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -8,6 +9,7 @@ import {
   Crosshair,
   FlaskConical,
   Archive,
+  SlidersHorizontal,
 } from "lucide-react";
 import { api, dateText } from "./lib/api";
 import { useUi } from "./stores/ui";
@@ -56,6 +58,7 @@ export function App() {
   const nav = [
     ["workspace", Activity, "Карточка токена"],
     ["dashboard", Archive, "Архив"],
+    ["profiles", SlidersHorizontal, "Профили"],
   ] as const;
   return (
     <div className="app-shell">
@@ -86,7 +89,7 @@ export function App() {
           </div>
           <p>Данные хранятся на этом устройстве</p>
           <div className="version">
-            v0.3.31 <span>Источники</span>
+            v0.3.36 <span>Источники</span>
           </div>
         </div>
       </aside>
@@ -302,6 +305,7 @@ export function App() {
             </>
           )}
           {page === "workspace" && <WorkspacePage />}
+          {page === "profiles" && <ProfilesPage />}
           {page === "report" && (
             <>
               <button onClick={() => setPage("dashboard")}>← В архив</button>

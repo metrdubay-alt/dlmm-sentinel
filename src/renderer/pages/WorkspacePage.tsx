@@ -1,4 +1,10 @@
 import {
+  defaultNumericProfiles,
+  profileTone,
+  formatTokenAge,
+} from "../../shared/analysis/numeric-profiles";
+import { TransferFeeWarning } from "./TransferFeeWarning";
+import {
   runTokenAnalysis,
   type AnalysisStage,
   type StageState,
@@ -535,16 +541,92 @@ function NumericSummary({
   const s = r.gmgn,
     input = s ? gmgnStrategyInput(s) : null,
     n = input ? numericScore(input) : null;
+  const queryClient = useQueryClient();
+  const settings = useQuery({
+    queryKey: ["settings"],
+    queryFn: () => api.settings(undefined),
+  });
+  const profiles = settings.data?.numericProfiles ?? defaultNumericProfiles();
+  const selectedProfile = profiles.find(
+    (p) => p.id === r.config.numericProfileId,
+  );
+  const autoProfile = profiles.find(
+    (p) => p.id === n?.assessment.classification.mode,
+  );
+  const profile = selectedProfile ?? autoProfile;
+  const changeProfile = useMutation({
+    mutationFn: async (id: string) => {
+      const current = await api.workspaceReport(r.config.target);
+      const config = { ...current.config };
+      if (id === "auto") delete config.numericProfileId;
+      else config.numericProfileId = id;
+      return api.workspaceSave(config);
+    },
+    onSuccess: async (updated) => {
+      queryClient.setQueryData(
+        ["workspace-report", updated.config.target],
+        updated,
+      );
+      await queryClient.invalidateQueries({
+        queryKey: ["workspace-report", r.config.target],
+      });
+      await queryClient.invalidateQueries({ queryKey: ["workspace-list"] });
+    },
+  });
+  const context = {
+    mode: n?.assessment.classification.mode,
+    marketCapUsd: input?.marketCapUsd,
+    marketCapRange: input?.marketCapRange,
+  };
+  const colour = (key: string, value: number | null | undefined) =>
+    profile
+      ? profileTone(profile, key, value, context)
+      : metricTone(key, value, context);
+  const watcherTone = colour("watchers", s?.watchers?.value);
+  const ageTone = colour("ageDays", input?.ageDays);
   const combined =
     s &&
     s.metrics.bundlersPct.value != null &&
     s.metrics.phishingPct.value != null
       ? s.metrics.bundlersPct.value + s.metrics.phishingPct.value
       : null;
-  const combinedTone = metricTone("combinedPct", combined);
+  const combinedTone = colour("combinedPct", combined);
   return (
     <section className="panel">
       <h2>1. Числовой анализ</h2>
+      <TransferFeeWarning fee={r.transferFee} />
+      <div className="numeric-profile-choice">
+        <label>
+          Профиль оценки
+          <select
+            aria-label="Профиль оценки"
+            value={selectedProfile?.id ?? "auto"}
+            disabled={changeProfile.isPending || disabled}
+            onChange={(e) => changeProfile.mutate(e.target.value)}
+          >
+            <option value="auto">
+              Автоматически
+              {autoProfile
+                ? ` · ${autoProfile.name}`
+                : " · недостаточно данных"}
+            </option>
+            {profiles.map((p) => (
+              <option value={p.id} key={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          onClick={() => {
+            useUi.getState().setWorkspace(r.config);
+            useUi.getState().setPage("profiles");
+          }}
+        >
+          Настроить профили
+        </button>
+      </div>
+      {changeProfile.error && <p role="alert">{changeProfile.error.message}</p>}
       <div className="button-row">
         <button className="primary" disabled={disabled} onClick={onRefresh}>
           {refreshing
@@ -561,7 +643,7 @@ function NumericSummary({
       ) : (
         <>
           <p>
-            РЕАЛЬНЫЙ СНИМОК GMGN · {dateText(s.observedAt)}. Возраст:{" "}
+            РЕАЛЬНЫЙ СНИМОК GMGN · {dateText(s.observedAt)}. Давность снимка:{" "}
             {Math.max(
               0,
               Math.floor((Date.now() - Date.parse(s.observedAt)) / 60000),
@@ -570,15 +652,24 @@ function NumericSummary({
           </p>
           <table>
             <tbody>
+              <tr>
+                <td>Возраст токена</td>
+                <td>
+                  <span
+                    className="metric-value"
+                    data-tone={ageTone.kind}
+                    style={metricToneStyle(ageTone)}
+                    title={`На дату снимка. Создан: ${s.createdAtDisplay || "нет данных"}. ${ageTone.hint}`}
+                  >
+                    {formatTokenAge(input?.ageDays)}
+                  </span>
+                  {ageTone.redFlag && <RedFlag hint={ageTone.hint} />}
+                </td>
+              </tr>
               {Object.entries(s.metrics).map(([key, m]) => {
-                const tone = metricTone(
+                const tone = colour(
                   key,
                   m.precision === "missing" ? null : m.value,
-                  {
-                    mode: n.assessment.classification.mode,
-                    marketCapUsd: input?.marketCapUsd,
-                    marketCapRange: input?.marketCapRange,
-                  },
                 );
                 return (
                   <tr key={key}>
@@ -633,34 +724,17 @@ function NumericSummary({
                 <td>
                   <span
                     className="metric-value"
-                    data-tone={metricTone("watchers", s.watchers?.value).kind}
-                    style={metricToneStyle(
-                      metricTone("watchers", s.watchers?.value),
-                    )}
-                    title={metricTone("watchers", s.watchers?.value).hint}
+                    data-tone={watcherTone.kind}
+                    style={metricToneStyle(watcherTone)}
+                    title={watcherTone.hint}
                   >
                     {s.watchers?.display || "Нет данных"}
                   </span>
-                  {metricTone("watchers", s.watchers?.value).redFlag && (
-                    <RedFlag
-                      hint={metricTone("watchers", s.watchers?.value).hint}
-                    />
-                  )}
+                  {watcherTone.redFlag && <RedFlag hint={watcherTone.hint} />}
                 </td>
               </tr>
             </tbody>
           </table>
-          {s.nativeFees && (
-            <p>
-              Total Fees исходно: {feeDisplay(s.nativeFees.amount)}{" "}
-              {s.nativeFees.asset}.{" "}
-              {s.feeConversion
-                ? `Пересчёт CoinGecko от ${dateText(s.feeConversion.fetchedAt)}: 1 ${s.nativeFees.asset} = $${s.feeConversion.nativeUsd}; 1 SOL = $${s.feeConversion.solUsd}.`
-                : s.nativeFees.asset === "SOL"
-                  ? "Slowcook: <100 SOL — red flag, 100–150 красный, 150–200 нейтрально, >200 зелёный."
-                  : "Свежий курс не получен."}
-            </p>
-          )}
           <p>
             Не хватает:{" "}
             {n.assessment.missing.map((k) => ruleLabels[k] ?? k).join("; ") ||

@@ -1,3 +1,4 @@
+import type { TransferFee } from "../../shared/analysis/transfer-fee";
 import { grokResultSchema, type GrokResult } from "../../shared/analysis/grok";
 import { mergeRelatedAccounts } from "../../shared/analysis/related-account";
 import { z } from "zod";
@@ -153,6 +154,7 @@ export class WorkspaceStore {
     before: WorkspaceReport,
     errors: Record<string, string>,
     at: string,
+    transferFee?: TransferFee,
   ) {
     const current = await this.report(before.config.target);
     const state = workspaceStateSchema.strip().parse(current);
@@ -172,6 +174,7 @@ export class WorkspaceStore {
       id: `${at}:${i}:${s.code}`,
       at,
     }));
+    if (transferFee) state.transferFee = transferFee;
     state.lastAttempt = at;
     state.errors = errors;
     state.alerts = [...state.alerts, ...events].slice(-200);

@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { Report } from "../../shared/schemas/domain";
 import type { WorkspaceConfig } from "../../shared/analysis/workspace";
 type Page =
+  | "profiles"
   | "workspace"
   | "dashboard"
   | "scan"

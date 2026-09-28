@@ -1,3 +1,4 @@
+import { fetchTransferFee } from "./transfer-fee";
 import type { BrowserWindow } from "electron";
 import type { WorkspaceConfig } from "../../shared/analysis/workspace";
 import { WorkspaceStore } from "./workspace-store";
@@ -52,12 +53,23 @@ export class WorkspaceService {
           : `Не удалось прочитать ${source}. Откройте источник и повторите чтение.`;
       }
     };
+    const transferFeeTask = fetchTransferFee(target);
     await read(
       "gmgn",
       () => this.gmgn.open(target, parent, true),
       () => this.gmgn.capture(target),
       (s) => this.gmgnStore.save(s),
     );
+    let transferFee = await transferFeeTask;
+    if (
+      transferFee.status === "unknown" &&
+      before.transferFee?.status === "configured"
+    )
+      transferFee = {
+        ...before.transferFee,
+        stale: true,
+        reason: "Обновление комиссии недоступно; показана последняя проверка.",
+      };
     if (scope === "numeric") {
       const retainedErrors = { ...before.errors };
       delete retainedErrors.gmgn;
@@ -65,6 +77,7 @@ export class WorkspaceService {
         before,
         { ...retainedErrors, ...errors },
         new Date().toISOString(),
+        transferFee,
       );
     }
     const handle = before.config.handle;
@@ -99,6 +112,11 @@ export class WorkspaceService {
         );
       }
     }
-    return this.store.finish(before, errors, new Date().toISOString());
+    return this.store.finish(
+      before,
+      errors,
+      new Date().toISOString(),
+      transferFee,
+    );
   }
 }

@@ -1,3 +1,4 @@
+import { transferFeeSchema } from "./transfer-fee";
 import { z } from "zod";
 import { relatedAccountSchema } from "./related-account";
 import { grokResultSchema } from "./grok";
@@ -19,6 +20,7 @@ export const workspaceConfigSchema = z
   .object({
     target: gmgnTargetSchema,
     label: z.string().trim().max(100),
+    numericProfileId: z.string().min(1).max(80).optional(),
     handle: moniHandleSchema.nullable(),
     relatedAccounts: z.array(relatedAccountSchema).max(5).optional(),
     monitor: z.boolean(),
@@ -56,6 +58,7 @@ export const workspaceStateSchema = z
     alerts: z.array(alertSchema).max(200),
     research: z.array(researchSchema).max(30),
     grok: grokResultSchema.nullable().optional(),
+    transferFee: transferFeeSchema.optional(),
   })
   .strict();
 export const workspaceReportSchema = workspaceStateSchema.extend({
