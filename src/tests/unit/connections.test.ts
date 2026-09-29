@@ -23,3 +23,28 @@ it("does not claim quota recovery by elapsed time or invent a reset time", () =>
     connectionFromEvidence({ ...e, notice: "Daily limit 5" }).limit,
   ).toBeNull();
 });
+
+it("reads confirmed Moni usage and flags only exhausted windows", () => {
+  const usage = { dailyUsedPercent: 2, weeklyUsedPercent: 3 };
+  expect(connectionFromEvidence({ ...e, usage })).toMatchObject({
+    limit: null,
+    usage,
+  });
+  expect(
+    connectionFromEvidence({
+      ...e,
+      usage: { dailyUsedPercent: 100, weeklyUsedPercent: 3 },
+    }).limit,
+  ).toContain("Дневной лимит GetMoni исчерпан");
+  expect(
+    connectionFromEvidence({
+      ...e,
+      usage: { dailyUsedPercent: null, weeklyUsedPercent: 100 },
+    }).limit,
+  ).toContain("Недельный лимит GetMoni исчерпан");
+});
+it("does not mistake 10 remaining searches for zero remaining searches", () => {
+  expect(
+    connectionFromEvidence({ ...e, notice: "10 searches remaining" }).limit,
+  ).toBeNull();
+});

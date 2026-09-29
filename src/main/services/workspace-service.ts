@@ -1,3 +1,4 @@
+import { MoniReadError } from "../../shared/analysis/moni";
 import { fetchTransferFee } from "./transfer-fee";
 import type { BrowserWindow } from "electron";
 import type { WorkspaceConfig } from "../../shared/analysis/workspace";
@@ -47,9 +48,11 @@ export class WorkspaceService {
         }
         if (error) throw error;
         if (value !== undefined) await save(value);
-      } catch {
+      } catch (error) {
         errors[source] = source.startsWith("moni")
-          ? "Getmoni не вернул счёт. Проверьте загрузку профиля и доступный лимит."
+          ? error instanceof MoniReadError
+            ? error.message
+            : "Getmoni не вернул счёт: не удалось прочитать загруженный профиль. Повторите обновление."
           : `Не удалось прочитать ${source}. Откройте источник и повторите чтение.`;
       }
     };

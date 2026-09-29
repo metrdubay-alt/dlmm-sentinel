@@ -112,3 +112,9 @@ describe("Moni visible card", () => {
     expect(compareMoni(older, newer).scoreDelta).toBeNull();
   });
 });
+
+it("identifies a missing requested profile without calling it quota exhaustion", () => {
+  expect(() =>
+    read({ profileHref: "", scoreText: "", notFound: true }),
+  ).toThrow("GetMoni: профиль @artificiallyinu не найден.");
+});

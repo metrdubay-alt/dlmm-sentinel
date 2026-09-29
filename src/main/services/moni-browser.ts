@@ -3,6 +3,7 @@ import { loadSourcePage } from "./source-navigation";
 import { BrowserWindow, session } from "electron";
 import {
   allowedMoniNavigation,
+  MoniReadError,
   moniHandleSchema,
   parseMoniCard,
   parseMoniProfileResponse,
@@ -15,6 +16,7 @@ export const MONI_READ_SCRIPT = `(() => {
   const text = selector => one(selector)?.innerText || '';
   return {
     url: location.href,
+    notFound: [...document.querySelectorAll('[class*="accountPage_searchNotFoundContainer"] [class*="searchNotFound_title"]')].some(e=>e.getClientRects().length>0 && /^not found$/i.test(e.textContent.trim())),
     profileHref: one('[class*="accountHeaderBlock_links"] a[href^="https://x.com/"]')?.href || '',
     scoreText: text('[class*="scoreBlock_scoreNumber"]'),
     smartsText: text('[class*="smartsListHeader_smartFollowersCount"]'),
@@ -172,6 +174,15 @@ export class MoniBrowser {
       try {
         return parseMoniCard(raw, requested, new Date().toISOString());
       } catch (error) {
+        if (error instanceof MoniReadError) throw error;
+        const connection = await this.connection();
+        if (connection.limit)
+          throw new MoniReadError("limit", connection.limit);
+        if (connection.auth === "signed-out")
+          throw new MoniReadError(
+            "signed-out",
+            "GetMoni: требуется вход в аккаунт.",
+          );
         const handle = moniHandleSchema.parse(requested),
           snapshot = this.observed.get(handle);
         const url = new URL(before);

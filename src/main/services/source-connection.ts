@@ -21,8 +21,18 @@ export function connectionScript(source: SourceId) {
  const gmgnAccount=source==='gmgn'&&nodes('[data-sentry-component="Connect"] button').some(e=>!!e.querySelector('[data-icon="IconWallet16pxRegular"]')&&!!e.querySelector('[data-icon*="bal"],[data-icon="IconRobinhoodeth16pxS"],[data-icon="IconBaseeth10016pxS"]'));
  const moniAccount=source==='moni'&&nodes('a[class*="sideNavigation_link"][aria-label="Profile"]').length>0&&nodes('a[class*="paymentStatus_statusLink"]').length>0;
  const notice=nodes('[role="alert"],[role="alertdialog"],[role="dialog"],[class*="quota"],[class*="Quota"],[class*="limit"],[class*="Limit"]').map(e=>(e.innerText||'').slice(0,1200)).join('\\n').slice(0,8000);
+ // This account usage tooltip exists in the DOM even while collapsed.
+ const usageRows=source==='moni'?[...document.querySelectorAll('[class*="paymentStatus_usagePopover"] [class*="usageLimitsPopover_usageRow__"]')]:[];
+ const percent=label=>{
+   const rows=usageRows.filter(e=>e.querySelector('[class*="usageLimitsPopover_usageLabel"]')?.textContent?.trim()===label);
+   if(rows.length!==1)return null;
+   const raw=rows[0].querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow');
+   if(raw===null||raw===undefined||raw.trim()==='')return null;
+   const n=Number(raw);return Number.isFinite(n)&&n>=0&&n<=100?n:null;
+ };
+ const usage=source==='moni'?{dailyUsedPercent:percent('Daily'),weeklyUsedPercent:percent('Weekly')}:null;
  const challenge=nodes('iframe[title]').some(e=>/captcha|challenge/i.test(e.title))||/verify.{0,30}human|подтвердите.{0,30}человек/i.test(notice);
- return {signedIn:explicitAccount||gmgnAccount||moniAccount||((source==='x'||source==='grok')&&xAccount),signedOut,notice,challenge};
+ return {signedIn:explicitAccount||gmgnAccount||moniAccount||((source==='x'||source==='grok')&&xAccount),signedOut,notice,challenge,usage};
 })()`;
 }
 export async function readConnection(

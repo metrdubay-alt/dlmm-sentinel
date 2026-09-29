@@ -1,3 +1,4 @@
+import { MoniReadError } from "../../shared/analysis/moni";
 import { afterEach, expect, it } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -135,7 +136,11 @@ it("stores a related account score despite missing project score and reloads it 
       isOpen: () => true,
       capture: async (handle: string) => {
         reads.push(handle);
-        if (handle === "project") throw Error("Empty score");
+        if (handle === "project")
+          throw new MoniReadError(
+            "not-found",
+            "GetMoni: профиль @project не найден.",
+          );
         return {
           handle,
           sourceUrl: `https://app.moni.ai/${handle}`,
@@ -160,7 +165,8 @@ it("stores a related account score despite missing project score and reloads it 
   expect(reads).toEqual(["project", "recipient"]);
   expect(report.moni).toBeNull();
   expect(report.relatedMoni?.[0].snapshot?.score).toBe(10949);
-  expect(report.errors.moni).toContain("Getmoni не вернул счёт");
+  expect(report.errors.moni).toBe("GetMoni: профиль @project не найден.");
+  expect(report.errors.moni).not.toContain("лимит");
   const restored = await new WorkspaceStore(db).report(target);
   expect(restored.config.handle).toBe("project");
   expect(restored.config.relatedAccounts?.[0].role).toBe("fee_recipient");

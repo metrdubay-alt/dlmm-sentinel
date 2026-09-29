@@ -70,10 +70,20 @@ export function allowedMoniNavigation(value: string) {
     return false;
   }
 }
+export class MoniReadError extends Error {
+  constructor(
+    readonly code: "not-found" | "limit" | "signed-out",
+    message: string,
+  ) {
+    super(message);
+    this.name = "MoniReadError";
+  }
+}
 const cardSchema = z.object({
   url: z.string().max(2048),
   profileHref: z.string().max(2048),
   scoreText: z.string().max(100),
+  notFound: z.boolean().optional(),
   smartsText: z.string().max(100),
   smartHrefs: z.array(z.string().max(2048)).max(1000),
 });
@@ -91,6 +101,15 @@ export function parseMoniCard(
   const card = cardSchema.parse(raw);
   const handle = moniHandleSchema.parse(requested);
   const url = new URL(card.url);
+  if (
+    card.notFound &&
+    url.origin === "https://app.moni.ai" &&
+    url.pathname.toLowerCase().replace(/\/$/, "") === `/${handle}`
+  )
+    throw new MoniReadError(
+      "not-found",
+      `GetMoni: профиль @${handle} не найден.`,
+    );
   const profile = new URL(card.profileHref);
   if (
     !allowedMoniNavigation(card.url) ||

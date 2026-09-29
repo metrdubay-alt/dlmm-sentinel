@@ -59,6 +59,21 @@ export function SourceConnections({ demo }: { demo: boolean }) {
                 </strong>
                 <span>{text}</span>
               </button>
+              {source === "moni" &&
+                c?.usage &&
+                (c.usage.dailyUsedPercent !== null ||
+                  c.usage.weeklyUsedPercent !== null) && (
+                  <small className="connection-usage">
+                    Использовано: день{" "}
+                    {c.usage.dailyUsedPercent === null
+                      ? "—"
+                      : `${c.usage.dailyUsedPercent}%`}{" "}
+                    · неделя{" "}
+                    {c.usage.weeklyUsedPercent === null
+                      ? "—"
+                      : `${c.usage.weeklyUsedPercent}%`}
+                  </small>
+                )}
               {c?.limit && (
                 <small role="alert" className="connection-warning">
                   ⚠ {c.limit}
