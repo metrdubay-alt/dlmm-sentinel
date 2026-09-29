@@ -10,7 +10,7 @@ it("reads Russian GMGN labels and exact holders separately from growth", () => {
       url: `https://gmgn.ai/robinhood/token/${target.address}`,
       tokenLinks: [`https://robin.etherscan.io/token/${target.address}`],
       info: { "Топ 10": "14.58%", Holders: "1K 6%" },
-      risk: { Фишинг: "24.5%" },
+      risk: { "Фишинговый кошелёк": "24.5%" },
       pool: { Капитализация: "$800.10K", Holders: "1420" },
       tooltips: [],
       volumeText: "$371.3K",

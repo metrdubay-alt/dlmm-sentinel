@@ -41,7 +41,7 @@ test("Russian GMGN reads labels, unlabelled capitalization and separates holder 
  <div data-sentry-component="InfoItem"><span class="info-item-title">Топ 10</span><span class="info-item-value">14.58%</span></div>
  <div data-sentry-component="InfoItem"><span class="info-item-title">Holders</span><span class="info-item-value"><span>1K</span> <span>6%</span></span></div>
  <div data-sentry-component="PoolItem"><span>Холдеры</span><span>1420</span></div>
- <div><div><span class="item-title">Фишинг</span></div><div class="item-value">24.5%</div></div>
+ <div><div><span class="item-title">Фишинговый кошелёк</span></div><div class="item-value">24.5%</div></div>
  <div class="bg-card-100"><span>5m</span></div><div><span>Объём</span><span>$371.3K</span></div>
  </div>`,
               { headers: { "content-type": "text/html; charset=utf-8" } },

@@ -31,7 +31,7 @@ import {
   assessProspects,
   prospectsInputSchema,
 } from "../../shared/analysis/prospects";
-import { metricLabels, ruleLabels } from "./NumericPage";
+import { metricLabels } from "./NumericPage";
 import { feeDisplay } from "../lib/fee-display";
 const empty: WorkspaceConfig = {
   target: { chain: "sol", address: "" },
@@ -673,7 +673,13 @@ function NumericSummary({
                 );
                 return (
                   <tr key={key}>
-                    <td>{metricLabels[key as keyof typeof metricLabels]}</td>
+                    <td>
+                      {key === "totalFeesSolEquivalent" &&
+                      m.value == null &&
+                      s.nativeFees?.amount.value != null
+                        ? "Total Fees"
+                        : metricLabels[key as keyof typeof metricLabels]}
+                    </td>
                     <td>
                       <span
                         className="metric-value"
@@ -687,7 +693,10 @@ function NumericSummary({
                       >
                         {m.precision === "rounded" ? "≈ " : ""}
                         {key === "totalFeesSolEquivalent"
-                          ? feeDisplay(m)
+                          ? m.value == null &&
+                            s.nativeFees?.amount.value != null
+                            ? `${feeDisplay(s.nativeFees.amount)} ${s.nativeFees.asset} · курс SOL недоступен`
+                            : feeDisplay(m)
                           : m.display || "Нет данных"}
                       </span>
                       {tone.redFlag && (
@@ -735,12 +744,11 @@ function NumericSummary({
               </tr>
             </tbody>
           </table>
-          <p>
-            Не хватает:{" "}
-            {n.assessment.missing.map((k) => ruleLabels[k] ?? k).join("; ") ||
-              "нет пропусков по этой модели"}
-            .
-          </p>
+          {r.errors.gmgn && (
+            <p role="alert">
+              Обновить GMGN не удалось. Показан сохранённый снимок.
+            </p>
+          )}
         </>
       )}
     </section>

@@ -8,10 +8,15 @@ export const gmgnLabels: Record<string, string[]> = {
   DEV: ["DEV"],
   "Total Fees": ["Total Fees", "Всего комиссий"],
   Bundler: ["Bundler", "Бандлеры", "Бандлер"],
-  Phishing: ["Phishing", "Фишинг"],
+  Phishing: ["Phishing", "Фишинг", "Фишинговый кошелёк"],
   "Market cap": ["Market cap", "Капитализация", "Рыночная капитализация"],
   "Token created": ["Token created", "Токен создан", "Создание токена"],
-  "Pool created": ["Pool created", "Пул создан", "Создание пула"],
+  "Pool created": [
+    "Pool created",
+    "Пул создан",
+    "Создание пула",
+    "Время создания пула",
+  ],
   "Total liq": ["Total liq", "Общая ликвидность", "Общ. ликвидность"],
 };
 function canonicalFields(fields: Record<string, string>) {

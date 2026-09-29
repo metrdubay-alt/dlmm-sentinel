@@ -92,6 +92,18 @@ export class GmgnBrowser {
     }
     if (background) this.window.hide();
     else this.window.show();
+    if (
+      target &&
+      this.isOpen(`https://gmgn.ai/${target.chain}/token/${target.address}`) &&
+      !this.window.webContents.isLoading()
+    ) {
+      const ready = await this.window.webContents
+        .executeJavaScript(
+          "Boolean(document.querySelector('#GlobalScrollDomId'))",
+        )
+        .catch(() => false);
+      if (ready) return true;
+    }
     await loadSourcePage(
       this.window,
       target

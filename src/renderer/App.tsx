@@ -89,7 +89,7 @@ export function App() {
           </div>
           <p>Данные хранятся на этом устройстве</p>
           <div className="version">
-            v0.3.41 <span>Источники</span>
+            v0.3.42 <span>Источники</span>
           </div>
         </div>
       </aside>
