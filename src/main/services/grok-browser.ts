@@ -188,9 +188,13 @@ export class GrokBrowser extends XBrowser {
           let answer;
           try {
             answer = parseGrokAnswer(last, context);
-          } catch {
+          } catch (error) {
+            const reason =
+              error instanceof Error && !(error instanceof SyntaxError)
+                ? error.message.slice(0, 350)
+                : "Не удалось прочитать ответ Grok.";
             throw new Error(
-              "Ответ Grok получен, но формат или адрес не совпадает с запросом. Откройте Grok для проверки; прежний результат сохранён.",
+              `${reason} Откройте Grok для проверки. Сохранённые результаты не изменены.`,
             );
           }
           this.check(win);

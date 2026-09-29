@@ -70,3 +70,39 @@ describe("Grok response identity and attribution", () => {
     ).toBeNull();
   });
 });
+
+it("retains a matching report but moves flags with empty sources to unknowns", () => {
+  const result = parseGrokAnswer(
+    JSON.stringify({
+      ...answer,
+      redFlags: [
+        ...answer.redFlags,
+        { text: "Профиль не связан с контрактом", sources: [] },
+      ],
+      greenFlags: [{ text: "Непроверенное достоинство", sources: [] }],
+    }),
+    context,
+  );
+  expect(result.score).toBe(64);
+  expect(result.redFlags).toEqual(answer.redFlags);
+  expect(result.greenFlags).toEqual([]);
+  expect(result.unknowns.join(" ")).toContain("Профиль не связан с контрактом");
+  expect(result.unknowns.join(" ")).toContain("Непроверенное достоинство");
+});
+it("still rejects unsafe flag links and another mint when a flag lacks sources", () => {
+  for (const patch of [
+    { mint: "0x1111111111111111111111111111111111111111" },
+    { greenFlags: [{ text: "Unsafe", sources: ["javascript:alert(1)"] }] },
+  ]) {
+    expect(() =>
+      parseGrokAnswer(
+        JSON.stringify({
+          ...answer,
+          redFlags: [{ text: "Без ссылки", sources: [] }],
+          ...patch,
+        }),
+        context,
+      ),
+    ).toThrow();
+  }
+});

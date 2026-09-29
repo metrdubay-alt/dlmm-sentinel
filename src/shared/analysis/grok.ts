@@ -16,7 +16,7 @@ const flag = z
     sources: z.array(sourceUrl).min(1).max(8),
   })
   .strict();
-export const grokAnswerSchema = z
+const grokAnswerObjectSchema = z
   .object({
     requestId: z.string().min(1).max(100),
     chain: z.enum(["sol", "bsc", "eth", "base", "robinhood"]),
@@ -65,11 +65,11 @@ export const grokAnswerSchema = z
     sources: z.array(sourceUrl).max(40),
     unknowns: z.array(z.string().max(500)).max(10),
   })
-  .strict()
-  .refine(
-    (v) => v.score === null || v.sources.length > 0,
-    "Оценка без источников не принимается",
-  );
+  .strict();
+export const grokAnswerSchema = grokAnswerObjectSchema.refine(
+  (v) => v.score === null || v.sources.length > 0,
+  "Оценка без источников не принимается",
+);
 export type GrokContext = {
   target: GmgnTarget;
   handle: string | null;
@@ -124,7 +124,7 @@ export function buildGrokPrompt(c: GrokContext) {
 3. momentum — Актуальность сейчас: насколько тема получила распространение за пределами одного аккаунта и одного токена, появляются ли новые проекты и независимые обсуждения, продолжают ли значимые авторы возвращаться к теме. Сопоставь последние 48 часов, 7 дней и предшествующие недели в окне 30 дней. Приведи конкретные даты и признаки нового интереса, устойчивого спроса либо затухания после пика. Отдельно различай популярность общего нарратива и интерес именно к проверяемому токену: тема может расти, пока этот токен теряет внимание. Заверши понятным выводом о текущей стадии темы и причине; не обещай будущий рост цены. При отсутствии сопоставимых наблюдений narrative=unknown, а не fading. Добавляй ссылки на конкретные подтверждающие публикации в sources, аккаунты с датами в accounts; имена и даты в narrativeDetails должны позволять сопоставить выводы с источниками.
 Оценка социальной перспективности 0–100 (выше лучше): нарратив 20, сообщество 20, значимые аккаунты 20, подлинность/опасные ссылки 25, продукт/экономика 15. Объясни оценку; если данных для общего балла недостаточно, score=null. Не оценивай on-chain цифры и доходность пулов. Не включай Transfer Fee, transfer tax, налог на перевод токена и его процент в социальные redFlags/greenFlags: приложение показывает это отдельным предупреждением в числовом анализе. В описании нарратива можно объяснять механику наград без повторения процента комиссии. Максимум 5 red flags, 3 green flags, 8 значимых аккаунтов. Не заполняй ответ оговорками; неизвестное только в unknowns.
 Верни ТОЛЬКО один JSON без markdown по этой форме: ${JSON.stringify(sample)}
-Для каждого redFlags/greenFlags: {"text":"вывод","sources":["https://ссылка-на-доказательство"]}. Для accounts: {"handle":"@имя","role":"реальная роль","activity":"действие и дата последней активности","source":"https://пост"}. sources — массив HTTPS-ссылок, unknowns — короткие строки. narrative только growing/stable/fading/unknown. Сохрани requestId, chain, mint, profile из формы без изменений. Никаких публикаций или сообщений в X.`;
+Для каждого redFlags/greenFlags: {"text":"вывод","sources":["https://ссылка-на-доказательство"]}. Для accounts: {"handle":"@имя","role":"реальная роль","activity":"действие и дата последней активности","source":"https://пост"}. Если подтверждающих ссылок нет, вывод перенеси в unknowns: пустой sources у redFlags/greenFlags недопустим. sources — массив HTTPS-ссылок, unknowns — короткие строки. narrative только growing/stable/fading/unknown. Сохрани requestId, chain, mint, profile из формы без изменений. Никаких публикаций или сообщений в X.`;
 }
 export function parseGrokAnswer(raw: string, c: GrokContext) {
   if (raw.length > 80000) throw new Error("Ответ Grok слишком большой");
@@ -138,7 +138,40 @@ export function parseGrokAnswer(raw: string, c: GrokContext) {
   } catch {
     throw new Error("Grok вернул неполный JSON");
   }
-  const answer = grokAnswerSchema.parse(parsed);
+  // An unsupported flag is a research gap, not a reason to discard the whole report.
+  // Keep strict URL/type validation; only an explicitly empty source array is recoverable.
+  const incoming = grokAnswerObjectSchema
+    .extend({
+      redFlags: z
+        .array(flag.extend({ sources: z.array(sourceUrl).max(8) }))
+        .max(10),
+      greenFlags: z
+        .array(flag.extend({ sources: z.array(sourceUrl).max(8) }))
+        .max(10),
+    })
+    .safeParse(parsed);
+  if (!incoming.success)
+    throw new Error(
+      `Ответ Grok: неверный формат полей ${incoming.error.issues
+        .slice(0, 3)
+        .map((i) => i.path.join(".") || "JSON")
+        .join(", ")}.`,
+    );
+  const value = incoming.data;
+  const unsupported = [...value.redFlags, ...value.greenFlags].filter(
+    (f) => f.sources.length === 0,
+  );
+  const answer = grokAnswerSchema.parse({
+    ...value,
+    redFlags: value.redFlags.filter((f) => f.sources.length > 0),
+    greenFlags: value.greenFlags.filter((f) => f.sources.length > 0),
+    unknowns: [
+      ...value.unknowns,
+      ...unsupported.map((f) =>
+        `Нет подтверждающей ссылки: ${f.text}`.slice(0, 500),
+      ),
+    ].slice(0, 10),
+  });
   const mint =
     c.target.chain !== "sol" ? answer.mint.toLowerCase() : answer.mint;
   if (
