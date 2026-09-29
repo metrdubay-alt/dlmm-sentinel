@@ -1,3 +1,4 @@
+import { GMGN_READ_SCRIPT } from "./gmgn-dom";
 import { readConnection } from "./source-connection";
 import { loadSourcePage } from "./source-navigation";
 import { convertFees, FEE_RATES_URL } from "../../shared/analysis/fee-rates";
@@ -8,48 +9,6 @@ import {
   type GmgnTarget,
 } from "../../shared/analysis/gmgn";
 
-export const GMGN_READ_SCRIPT = `(() => {
-  const root=document.querySelector('#GlobalScrollDomId');
-  if(!root) throw new Error('Карточка GMGN ещё не загрузилась.');
-  const clean=e=>(e?.innerText||'').replace(/[\\uE000-\\uF8FF]/g,'').trim();
-  const info={};
-  for(const label of ['Top 10','Holders','Snipers','DEV','Total Fees']) {
-    const rows=[...root.querySelectorAll('[data-sentry-component="InfoItem"]')].filter(e=>clean(e.querySelector('.info-item-title'))===label);
-    info[label]=rows.length===1?clean(rows[0].querySelector('.info-item-value')):'';
-  }
-  const risk={};
-  for(const label of ['Bundler','Phishing']) {
-    const labels=[...root.querySelectorAll('.item-title')].filter(e=>clean(e)===label);
-    risk[label]=labels.length===1?clean(labels[0].parentElement?.parentElement?.querySelector('.item-value')):'';
-  }
-  const pool={};
-  for(const label of ['Market cap','Token created','Pool created','Total liq']) {
-    const rows=[...root.querySelectorAll('[data-sentry-component="PoolItem"]')].filter(e=>clean(e.firstElementChild)===label);
-    pool[label]=rows.length===1?clean(rows[0].lastElementChild):'';
-  }
-  const volLabels=[...root.querySelectorAll('span')].filter(e=>clean(e)==='Vol');
-  const periodLabels=[...root.querySelectorAll('span')].filter(e=>['1m','5m','1h','24h'].includes(clean(e))&&e.parentElement?.classList.contains('bg-card-100'));
-  const fees=[...root.querySelectorAll('[data-sentry-component="InfoItem"]')].filter(e=>clean(e.querySelector('.info-item-title'))==='Total Fees');
-  const eyes=[...root.querySelectorAll('[data-sentry-component="BaseInfoBar"] [data-icon="IconDisplay16pxRegular"]')].filter(e=>e.getClientRects().length>0&&getComputedStyle(e).visibility==='visible');
-  const panel=root.querySelector('[id$="panel-holders"]');
-  const activePanel=panel&&panel.getClientRects().length>0;
-  const holderCells=activePanel?[...panel.querySelectorAll('[data-testid="table-cell-holder"]')]:[];
-  const holders=holderCells.slice(0,200).map(cell=>{
-    const row=cell.parentElement;
-    const links=[...cell.querySelectorAll('a[href^="/sol/address/"],a[href^="/bsc/address/"],a[href^="/eth/address/"],a[href^="/base/address/"],a[href^="/robinhood/address/"]')];
-    const addresses=[...new Set(links.map(a=>a.getAttribute('href').split('/').pop()))];
-    return {address:addresses.length===1?addresses[0]:'', tags:[...cell.querySelectorAll('[data-testid^="user-tag-"]')].map(e=>e.getAttribute('data-testid').replace('user-tag-','')),
-      unrealized:clean(row?.querySelector('[data-testid="table-cell-unrealized"]')),
-      remaining:clean(row?.querySelector('[data-testid="table-cell-owned"]'))};
-  });
-  return {url:location.href,tokenLinks:[...root.querySelectorAll('a[href*="solscan.io/token/"],a[href*="bscscan.com/token/"],a[href*="etherscan.io/token/"],a[href*="basescan.org/token/"],a[href*="robin.etherscan.io/token/"]')].map(e=>e.href),info,risk,pool,
-    poolLinks:[...root.querySelectorAll('[data-sentry-component="PoolInfo"] a[href]')].map(e=>e.href).slice(0,100),
-    watchersText:eyes.length===1?clean(eyes[0].nextElementSibling):'',
-    holders,holdersState:!activePanel?'unavailable':holderCells.length?'partial':clean(panel).includes('No Data')?'empty':'unavailable',
-    tooltips:[...document.querySelectorAll('[role="tooltip"]')].filter(e=>e.getClientRects().length>0&&getComputedStyle(e).visibility==='visible'&&getComputedStyle(e).opacity!=='0').map(clean).slice(0,20),
-    volumeText:volLabels.length===1?clean(volLabels[0].nextElementSibling):'',volumePeriod:periodLabels.length===1?clean(periodLabels[0]):'',
-    feeIcon:fees.length===1?(fees[0].querySelector('[data-icon]')?.getAttribute('data-icon')||''):''};
-})()`;
 function allowed(url: string) {
   try {
     const u = new URL(url);

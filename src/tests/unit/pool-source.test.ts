@@ -125,3 +125,46 @@ it("collects all active candidates strictly above $1000, caches discovery and re
   await second;
   expect(discovery).toBe(1);
 });
+
+it("refreshes pools with missing or stale discovery TVL before filtering", async () => {
+  vi.useFakeTimers();
+  const target = {
+    chain: "robinhood" as const,
+    address: "0xfd1a35778d9798f13c6fb97d29c07a5ce3f7fb5e",
+  };
+  const pool = {
+    attributes: {
+      address:
+        "0x21dc90c9e5e41459c0999c1e2311fd1f3b3645a8edf0186e94c8e2dfbee59f3d",
+      name: "OFY / USDG 5%",
+      reserve_in_usd: null as string | null,
+      volume_usd: { h1: "0", h24: "100" },
+    },
+    relationships: {
+      base_token: { data: { id: `robinhood_${target.address}` } },
+    },
+  };
+  const fetcher = (async (url: string | URL | Request) =>
+    Response.json(
+      String(url).includes("ohlcv")
+        ? { data: { attributes: { ohlcv_list: [] } } }
+        : {
+            data: [
+              {
+                ...pool,
+                attributes: {
+                  ...pool.attributes,
+                  reserve_in_usd: String(url).includes("/multi/")
+                    ? "48000"
+                    : null,
+                },
+              },
+            ],
+          },
+    )) as typeof fetch;
+  const pending = new PoolSource(fetcher).capture(target);
+  await vi.runAllTimersAsync();
+  const snapshot = await pending;
+  expect(snapshot.rows).toHaveLength(1);
+  expect(snapshot.rows[0].tvlUsd).toBe(48000);
+});

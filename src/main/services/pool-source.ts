@@ -60,12 +60,8 @@ export class PoolSource {
       if (count < 20 || (found.length > 0 && found.at(-1)?.volume24hUsd === 0))
         state.complete = true;
     }
-    const candidates = [...state.rows.values()].filter(
-      (p) =>
-        p.tvlUsd != null &&
-        p.tvlUsd > 1000 &&
-        (p.volume1hUsd == null || p.volume1hUsd > 0),
-    );
+    // Discovery metadata can lag for new pools. Refresh before applying TVL filters.
+    const candidates = [...state.rows.values()];
     const rows = new Map<string, PoolRow>();
     // Refresh metadata in batches, independent of the five-minute discovery cache.
     for (let i = 0; i < candidates.length; i += 20) {
@@ -76,12 +72,13 @@ export class PoolSource {
       for (const row of parsePoolPage(raw, target)) {
         if (
           batch.some((p) => p.address === row.address) &&
-          (row.tvlUsd ?? 0) > 1000 &&
-          (row.volume1hUsd == null || row.volume1hUsd > 0)
+          (row.tvlUsd ?? 0) > 1000
         )
           rows.set(row.address, row);
       }
     }
+    // Do not retain a negative discovery result for five minutes on a new token.
+    if (rows.size === 0) this.cache.delete(key);
     // One minute for publication latency; all pools use the same completed windows.
     const end = Math.floor(Date.now() / 60000) * 60 - 60;
     for (const p of rows.values()) {

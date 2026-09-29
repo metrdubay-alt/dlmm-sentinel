@@ -1,6 +1,28 @@
 import { z } from "zod";
 import { mintSchema } from "../schemas/domain";
 import type { StrategyInput } from "./strategy";
+export const gmgnLabels: Record<string, string[]> = {
+  "Top 10": ["Top 10", "Топ 10"],
+  Holders: ["Holders", "Холдеры", "Держатели"],
+  Snipers: ["Snipers", "Снайперы"],
+  DEV: ["DEV"],
+  "Total Fees": ["Total Fees", "Всего комиссий"],
+  Bundler: ["Bundler", "Бандлеры", "Бандлер"],
+  Phishing: ["Phishing", "Фишинг"],
+  "Market cap": ["Market cap", "Капитализация", "Рыночная капитализация"],
+  "Token created": ["Token created", "Токен создан", "Создание токена"],
+  "Pool created": ["Pool created", "Пул создан", "Создание пула"],
+  "Total liq": ["Total liq", "Общая ликвидность", "Общ. ликвидность"],
+};
+function canonicalFields(fields: Record<string, string>) {
+  const result = { ...fields };
+  for (const [key, aliases] of Object.entries(gmgnLabels)) {
+    const values = [...new Set(aliases.map((a) => fields[a]).filter(Boolean))];
+    if (values.length === 1) result[key] = values[0];
+    else if (values.length > 1) result[key] = "";
+  }
+  return result;
+}
 const evmAddress = z
   .string()
   .regex(/^0x[0-9a-fA-F]{40}$/)
@@ -264,6 +286,9 @@ export function parseGmgnCard(
     throw new Error(
       "Карточка GMGN не совпадает с сетью и полным адресом токена.",
     );
+  x.info = canonicalFields(x.info);
+  x.risk = canonicalFields(x.risk);
+  x.pool = canonicalFields(x.pool);
   const missing = () => measurement("");
   const bundleMatches = x.tooltips
     .map((t) => /Bundlers hold\s+(\d+(?:\.\d+)?%)/.exec(t)?.[1])
@@ -272,7 +297,16 @@ export function parseGmgnCard(
     bundleMatches.length === 1
       ? measurement(bundleMatches[0], true)
       : { ...measurement(x.risk.Bundler, true), precision: "rounded" as const };
-  const holders = measurement(x.info.Holders);
+  // Basic Data provides the full count; the compact card can include growth.
+  const detailedHolders = measurement(x.pool.Holders);
+  const compactHolders = (x.info.Holders ?? "").replace(
+    /\s+[+−-]?\d+(?:[.,]\d+)?%\s*$/,
+    "",
+  );
+  const holders =
+    detailedHolders.value !== null && detailedHolders.precision === "display"
+      ? detailedHolders
+      : measurement(compactHolders);
   if (holders.value !== null && !Number.isInteger(holders.value)) {
     holders.value = null;
     holders.precision = "missing";
