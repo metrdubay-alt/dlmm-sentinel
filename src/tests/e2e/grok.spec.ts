@@ -24,7 +24,7 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
     chain: "bsc" as const,
     address: "0xcafdbce93477261db8250e42bdae6e66733f9e20",
   };
-  const install = async (mode: "answer" | "limit" | "wait") =>
+  const install = async (mode: "answer" | "limit" | "wait" | "disabled") =>
     app.evaluate(async ({ session }, mode) => {
       const s = session.fromPartition("persist:sentinel-x");
       try {
@@ -38,9 +38,10 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
           new Response(
             mode === "limit"
               ? '<main><div role="alert">You have reached your usage limit. Try again later.</div></main>'
-              : `<main><textarea disabled readonly placeholder="Ask Grok (AI agent)"></textarea><button aria-label="Grok something">Send</button><div id="chat"></div><script>
+              : `<main><textarea disabled readonly placeholder="Ask Grok (AI agent)"></textarea><button aria-label="Спросить" disabled><svg><path d="M12 3.59l7.457 7.45-1.414 1.42L13 7.41V21h-2V7.41l-5.043 5.05-1.414-1.42L12 3.59z"></path></svg></button><div id="chat"></div><script>
   setTimeout(()=>{document.querySelector('textarea').disabled=false},1800);
   setTimeout(()=>{document.querySelector('textarea').readOnly=false},2400);
+  document.querySelector('textarea').addEventListener('input',()=>{if(${JSON.stringify(mode)}==='disabled')return;setTimeout(()=>{document.querySelector('button').disabled=false},1200)});
   const t=document.querySelector('textarea');t.focus=()=>{throw new Error('Hidden editor must not require focus')};let sent=0;
   document.querySelector('button').addEventListener('click',()=>{sent++;document.body.dataset.sent=String(sent);const prompt=t.value;t.value='';document.querySelector('#chat').textContent=prompt;
   if(${JSON.stringify(mode)}==='wait')return;
@@ -149,6 +150,12 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
           .isVisible(),
       ),
     ).toBe(false);
+    await install("disabled");
+    await expect(
+      page.evaluate((t) => window.sentinel.grokRun(t), target),
+    ).rejects.toThrow(/Запрос не отправлен/);
+    expect(await grok.locator("textarea").inputValue()).toBe("");
+    expect(await grok.locator("body").getAttribute("data-sent")).toBeNull();
     await install("wait");
     const pending = page.evaluate(
       (t) => window.sentinel.grokRun(t).catch((e) => e.message),

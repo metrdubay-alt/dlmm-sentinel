@@ -32,6 +32,29 @@ export const GROK_STATE_SCRIPT = String.raw`(() => {
  const editorReady=editors.length===1&&!editors[0].disabled&&!editors[0].readOnly&&editors[0].getAttribute('aria-disabled')!=='true';
  return {editorCount:editors.length,editorReady,value:editors[0]?.value??'',copies:copies.length,stop,answer:answer.slice(0,80001),body:body.slice(0,100000),blocked};
 })()`;
+// Match the observed send icon inside the editor's own composer; never a page-wide arrow.
+export function grokSubmitScript(prompt: string, click = true) {
+  return `(() => {
+    const u=new URL(location.href);if(u.origin!=="https://x.com"||u.pathname!=="/i/grok")return 'changed';
+    const visible=e=>e.getClientRects().length>0&&getComputedStyle(e).visibility!=='hidden';
+    const editors=[...document.querySelectorAll('textarea')].filter(visible);
+    if(editors.length!==1||editors[0].value!==${JSON.stringify(prompt)})return 'changed';
+    const editor=editors[0];if(editor.disabled||editor.readOnly)return 'pending';
+    const arrow='M12 3.59l7.457 7.45-1.414 1.42L13 7.41V21h-2V7.41l-5.043 5.05-1.414-1.42L12 3.59z';
+    let root=editor.parentElement;
+    for(let depth=0;root&&depth<6;depth++,root=root.parentElement){
+      if(root===document.body)break;
+      const buttons=[...root.querySelectorAll('button')].filter(visible).filter(b=>b.getAttribute('aria-label')==='Grok something'||[...b.querySelectorAll('svg path')].some(p=>p.getAttribute('d')===arrow));
+      if(buttons.length>1)return 'ambiguous';
+      if(buttons.length===1){
+        const b=buttons[0];if(b.disabled||b.getAttribute('aria-disabled')==='true')return 'pending';
+        if(${JSON.stringify(click)})b.click();return ${JSON.stringify(click ? "sent" : "ready")};
+      }
+    }
+    return 'pending';
+  })()`;
+}
+
 type State = {
   editorCount: number;
   editorReady: boolean;
@@ -102,6 +125,7 @@ export class GrokBrowser extends XBrowser {
       startedAt: context.startedAt,
       error: null,
     };
+    let unsentPrompt: string | null = null;
     try {
       await super.openGrok(parent, true);
       const win = this.window!;
@@ -135,6 +159,7 @@ export class GrokBrowser extends XBrowser {
       );
       if (!filled)
         throw new Error("Поле запроса Grok изменилось. Запрос не отправлен.");
+      unsentPrompt = prompt;
       await new Promise((r) => setTimeout(r, 250));
       this.check(win);
       observed = await win.webContents.executeJavaScript(GROK_STATE_SCRIPT);
@@ -142,15 +167,27 @@ export class GrokBrowser extends XBrowser {
         throw new Error(
           "Не удалось заполнить запрос Grok. Запрос не отправлен.",
         );
-      // Exactly one submission; no retry that could spend quota twice.
-      const submitted = await win.webContents.executeJavaScript(`(() => {
-        const u=new URL(location.href);if(u.origin!=="https://x.com"||u.pathname!=="/i/grok")return false;
-        const buttons=[...document.querySelectorAll('button[aria-label="Grok something"]')].filter(b=>b.getClientRects().length&&!b.disabled&&b.getAttribute('aria-disabled')!=='true');
-        if(buttons.length!==1)return false;buttons[0].click();return true;
-      })()`);
+      // Poll only while no click occurred. A successful click or uncertain transport failure is never retried.
+      let submitted = false;
+      const sendUntil = Date.now() + 10000;
+      while (Date.now() < sendUntil) {
+        this.check(win);
+        observed = await win.webContents.executeJavaScript(GROK_STATE_SCRIPT);
+        if (observed!.blocked) throw new Error(observed!.blocked);
+        const outcome = await win.webContents.executeJavaScript(
+          grokSubmitScript(prompt),
+        );
+        if (outcome === "sent") {
+          submitted = true;
+          unsentPrompt = null;
+          break;
+        }
+        if (outcome === "changed" || outcome === "ambiguous") break;
+        await new Promise((r) => setTimeout(r, 250));
+      }
       if (!submitted)
         throw new Error(
-          "Кнопка отправки Grok не найдена. Откройте Grok кнопкой входа для проверки.",
+          "Кнопка отправки Grok недоступна. Запрос не отправлен; повторите после загрузки Grok.",
         );
       this.state.phase = "waiting";
       const deadline = Date.now() + 240000,
@@ -224,6 +261,19 @@ export class GrokBrowser extends XBrowser {
       this.state.error = message;
       throw new Error(message);
     } finally {
+      if (unsentPrompt && this.window && !this.window.isDestroyed()) {
+        // Remove only the exact draft inserted by this run; never touch a user's different draft.
+        try {
+          await this.window.webContents.executeJavaScript(`(()=>{
+            const u=new URL(location.href);if(u.origin!=='https://x.com'||u.pathname!=='/i/grok')return;
+            const nodes=[...document.querySelectorAll('textarea')].filter(e=>e.getClientRects().length&&getComputedStyle(e).visibility!=='hidden');
+            if(nodes.length!==1||nodes[0].value!==${JSON.stringify(unsentPrompt)})return;
+            Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(nodes[0],'');nodes[0].dispatchEvent(new Event('input',{bubbles:true}));
+          })()`);
+        } catch {
+          /* The source window may have closed. */
+        }
+      }
       if (this.window && !this.window.isDestroyed()) this.window.hide();
       this.busy = false;
     }
