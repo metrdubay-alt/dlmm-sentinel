@@ -136,3 +136,40 @@ it("uses GMGN social clues and rejects a launchpad nickname without an X identit
     "weightlesswires",
   ]);
 });
+
+it("accepts an evidence-linked fee recipient activity block and keeps older reports compatible", () => {
+  const feeRecipientSupport = {
+    summary:
+      "@recipient: 4 собственных поста за 7 дней; последний 30.09.2026. Продолжает писать о токене.",
+    sources: ["https://x.com/recipient/status/123"],
+  };
+  expect(
+    parseGrokAnswer(JSON.stringify({ ...answer, feeRecipientSupport }), context)
+      .feeRecipientSupport,
+  ).toEqual(feeRecipientSupport);
+  expect(
+    parseGrokAnswer(JSON.stringify(answer), context).feeRecipientSupport,
+  ).toBeUndefined();
+  expect(
+    parseGrokAnswer(
+      JSON.stringify({ ...answer, feeRecipientSupport: null }),
+      context,
+    ).feeRecipientSupport,
+  ).toBeNull();
+  expect(() =>
+    parseGrokAnswer(
+      JSON.stringify({
+        ...answer,
+        feeRecipientSupport: {
+          ...feeRecipientSupport,
+          sources: ["javascript:alert(1)"],
+        },
+      }),
+      context,
+    ),
+  ).toThrow();
+  const prompt = buildGrokPrompt(context);
+  expect(prompt).toContain("feeRecipientSupport");
+  expect(prompt).toContain("24 часа / 7 дней / 30 дней");
+  expect(prompt).toContain("Само получение комиссий");
+});

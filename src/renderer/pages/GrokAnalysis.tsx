@@ -147,6 +147,17 @@ export function GrokAnalysis({
               </p>
             </div>
           )}
+          {answer.feeRecipientSupport && (
+            <div aria-label="Участие получателя комиссий">
+              <h3>Участие получателя комиссий</h3>
+              <p style={{ whiteSpace: "pre-wrap" }}>
+                {withoutTransferFeeRate(answer.feeRecipientSupport.summary)}
+              </p>
+              <div className="button-row">
+                {answer.feeRecipientSupport.sources.map(link)}
+              </div>
+            </div>
+          )}
           <p>{withoutTransferFeeRate(answer.scoreReason)}</p>
           <p>
             Нарратив:{" "}

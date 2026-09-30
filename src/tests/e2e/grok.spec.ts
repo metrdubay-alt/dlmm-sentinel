@@ -46,7 +46,7 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
   document.querySelector('button').addEventListener('click',()=>{sent++;document.body.dataset.sent=String(sent);const prompt=t.value;t.value='';document.querySelector('#chat').textContent=prompt;
   if(${JSON.stringify(mode)}==='wait')return;
   const sample=JSON.parse(prompt.split('по этой форме: ')[1].split('\\nДля каждого')[0]);
-  const answer={...sample,narrativeDetails:{essence:'ДЕМО: идея и механизм комиссий',adoption:'ДЕМО: два независимых автора и проекты',momentum:'ДЕМО: интерес растёт за 7 дней'},discoveredProfile:{handle:'example',sources:['https://x.com/example/status/123']},tokenSymbol:'DEMO',description:'ДЕМО-ДАННЫЕ: найден независимый интерес',score:62,scoreReason:'Оценка Grok по тестовым источникам',narrative:'stable',sources:['https://x.com/example/status/123'],redFlags:[{text:'ДЕМО: профиль не подтвержден',sources:[]},{text:'3% transfer tax на все трансферы $WOW',sources:['https://example.com/fee']},{text:'ДЕМО: повторяющиеся промо-посты',sources:['https://x.com/example/status/123']}]};
+  const answer={...sample,feeRecipientSupport:{summary:'ДЕМО: @recipient — 4 собственных поста за 7 дней; последний 30 сентября. Поддержка продолжается.',sources:['https://x.com/recipient/status/123']},narrativeDetails:{essence:'ДЕМО: идея и механизм комиссий',adoption:'ДЕМО: два независимых автора и проекты',momentum:'ДЕМО: интерес растёт за 7 дней'},discoveredProfile:{handle:'example',sources:['https://x.com/example/status/123']},tokenSymbol:'DEMO',description:'ДЕМО-ДАННЫЕ: найден независимый интерес',score:62,scoreReason:'Оценка Grok по тестовым источникам',narrative:'stable',sources:['https://x.com/example/status/123'],redFlags:[{text:'ДЕМО: профиль не подтвержден',sources:[]},{text:'3% transfer tax на все трансферы $WOW',sources:['https://example.com/fee']},{text:'ДЕМО: повторяющиеся промо-посты',sources:['https://x.com/example/status/123']}]};
   const block=document.createElement('div');const content=document.createElement('pre');content.textContent=JSON.stringify(answer);content.innerHTML=content.innerHTML.replace('независимый интерес','независимый <span style="display:block">интерес</span>');block.append(content);const actions=document.createElement('div');actions.innerHTML='<button aria-label="Copy text">Copy</button><button aria-label="Regenerate">Regenerate</button>';block.append(actions);document.querySelector('#chat').append(block);
   });</script></main>`,
             { headers: { "content-type": "text/html; charset=utf-8" } },
@@ -145,6 +145,14 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
     await expect(
       page.getByText(/ссылки автоматически не подтверждаются/),
     ).toHaveCount(0);
+    const recipientBlock = page.getByLabel("Участие получателя комиссий", {
+      exact: true,
+    });
+    await expect(recipientBlock.getByRole("heading")).toHaveText(
+      "Участие получателя комиссий",
+    );
+    await expect(recipientBlock).toContainText("4 собственных поста за 7 дней");
+    await expect(recipientBlock.getByRole("button")).toHaveCount(1);
     await page.screenshot({
       path: "test-results/grok-result.png",
       fullPage: true,
