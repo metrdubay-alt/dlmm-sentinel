@@ -1,7 +1,7 @@
 import { GMGN_READ_SCRIPT } from "./gmgn-dom";
 import { readConnection } from "./source-connection";
 import { loadSourcePage } from "./source-navigation";
-import { convertFees, FEE_RATES_URL } from "../../shared/analysis/fee-rates";
+import { enrichFees } from "./fee-rates-source";
 import { BrowserWindow, session } from "electron";
 import {
   gmgnTargetSchema,
@@ -151,23 +151,9 @@ export class GmgnBrowser {
       if (!win.isDestroyed() && win.webContents.getURL() === url)
         await selectPeriod("5m");
     }
-    if (!snapshot.nativeFees || snapshot.nativeFees.asset === "SOL")
-      return snapshot;
-    try {
-      const response = await fetch(FEE_RATES_URL, {
-        signal: AbortSignal.timeout(8000),
-        redirect: "error",
-      });
-      if (!response.ok) throw new Error("Rates unavailable");
-      return convertFees(
-        snapshot,
-        await response.json(),
-        new Date().toISOString(),
-      );
-    } catch {
-      return snapshot;
-    }
+    return enrichFees(snapshot);
   }
+
   close() {
     this.window?.destroy();
     this.window = null;

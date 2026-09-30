@@ -16,6 +16,7 @@ export function convertFees(
   snapshot: GmgnSnapshot,
   raw: unknown,
   fetchedAt: string,
+  source: "CoinGecko" | "Coinbase" = "CoinGecko",
 ): GmgnSnapshot {
   const result = gmgnSnapshotSchema.parse(snapshot);
   if (!result.nativeFees || result.nativeFees.asset === "SOL") return result;
@@ -47,7 +48,7 @@ export function convertFees(
     equivalent = usd / solana.usd;
   if (!Number.isFinite(usd) || !Number.isFinite(equivalent)) return result;
   result.feeConversion = {
-    source: "CoinGecko",
+    source,
     fetchedAt,
     nativeUpdatedAt: new Date(binancecoin.last_updated_at * 1000).toISOString(),
     solUpdatedAt: new Date(solana.last_updated_at * 1000).toISOString(),

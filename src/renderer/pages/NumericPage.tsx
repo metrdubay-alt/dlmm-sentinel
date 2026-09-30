@@ -204,7 +204,8 @@ export function NumericPage() {
                 {latest.feeConversion ? (
                   <>
                     {" "}
-                    Курс CoinGecko: 1 {latest.nativeFees.asset} = $
+                    Курс {latest.feeConversion.source}: 1{" "}
+                    {latest.nativeFees.asset} = $
                     {latest.feeConversion.nativeUsd}; 1 SOL = $
                     {latest.feeConversion.solUsd}. Время котировок:{" "}
                     {dateText(latest.feeConversion.nativeUpdatedAt)} /{" "}

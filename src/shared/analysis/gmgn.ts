@@ -82,7 +82,7 @@ export const gmgnSnapshotSchema = z
       .optional(),
     feeConversion: z
       .object({
-        source: z.literal("CoinGecko"),
+        source: z.enum(["CoinGecko", "Coinbase"]),
         fetchedAt: z.string().datetime(),
         nativeUpdatedAt: z.string().datetime(),
         solUpdatedAt: z.string().datetime(),
