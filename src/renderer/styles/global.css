@@ -1194,3 +1194,6 @@ button.source-open:hover {
   background: #101a27;
   white-space: nowrap;
 }
+
+.mode-settings .data-mode-control { display: flex; align-items: center; gap: 8px; min-width: 240px; }
+.mode-settings select { min-width: 190px; }
