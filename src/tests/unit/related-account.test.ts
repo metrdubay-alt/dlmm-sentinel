@@ -24,3 +24,15 @@ it("keeps reviewed fee recipients separate from creator claims", () => {
     }).success,
   ).toBe(false);
 });
+
+it("replaces stale Grok claims but retains reviewed accounts", () => {
+  const saved = [
+    relatedAccountSchema.parse({
+      handle: "wrong",
+      role: "creator",
+      source: "https://solscan.io/token/example",
+      attribution: "grok",
+    }),
+  ];
+  expect(mergeRelatedAccounts(saved, [])).toEqual([]);
+});

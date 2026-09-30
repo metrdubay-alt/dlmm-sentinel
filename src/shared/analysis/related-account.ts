@@ -25,7 +25,11 @@ export function mergeRelatedAccounts(
   saved: z.infer<typeof relatedAccountSchema>[] = [],
   discovered: z.infer<typeof relatedAccountSchema>[] = [],
 ) {
-  const rows = new Map(saved.map((a) => [`${a.handle}:${a.role}`, a]));
+  const rows = new Map(
+    saved
+      .filter((a) => a.attribution !== "grok")
+      .map((a) => [`${a.handle}:${a.role}`, a]),
+  );
   for (const a of discovered) {
     const key = `${a.handle}:${a.role}`;
     if (rows.get(key)?.attribution !== "reviewed")

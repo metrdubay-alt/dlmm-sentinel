@@ -163,7 +163,11 @@ async function start() {
                 throw new Error("Grok отключён в демо-режиме.");
               const target = commands.grokRun.input.parse(parsed),
                 current = await workspaceStore.report(target);
-              const result = await grokBrowser.run(current.config, window);
+              const result = await grokBrowser.run(
+                current.config,
+                window,
+                await gmgnBrowser.socialLinks(target),
+              );
               data = await moniQueue.run(async () => {
                 if ((await service.settings()).demoMode)
                   throw new Error("Grok остановлен: включён демо-режим.");
@@ -530,18 +534,29 @@ async function start() {
     void db.$disconnect();
   });
 }
-app
-  .whenReady()
-  .then(start)
-  .catch((error) => {
-    console.error(
-      JSON.stringify({
-        level: "fatal",
-        event: "startup",
-        message: String(error),
-      }),
-    );
-    dialog.showErrorBox("DLMM Sentinel — ошибка запуска", String(error));
-    app.quit();
+const primaryInstance = app.requestSingleInstanceLock();
+if (!primaryInstance) app.quit();
+else {
+  app.on("second-instance", () => {
+    if (window && !window.isDestroyed()) {
+      window.restore();
+      window.show();
+      window.focus();
+    }
   });
+  app
+    .whenReady()
+    .then(start)
+    .catch((error) => {
+      console.error(
+        JSON.stringify({
+          level: "fatal",
+          event: "startup",
+          message: String(error),
+        }),
+      );
+      dialog.showErrorBox("DLMM Sentinel — ошибка запуска", String(error));
+      app.quit();
+    });
+}
 app.on("window-all-closed", () => app.quit());

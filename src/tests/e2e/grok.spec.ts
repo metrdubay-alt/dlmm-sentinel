@@ -78,6 +78,19 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
     ).rejects.toThrow(/демо/);
     await page.getByLabel("Режим данных").selectOption("live");
     await expect(page.getByLabel("Режим данных")).toBeEnabled();
+    await app.evaluate(({ session }) => {
+      session
+        .fromPartition("persist:sentinel-gmgn")
+        .protocol.handle(
+          "https",
+          () =>
+            new Response(
+              '<div id="GlobalScrollDomId"><a href="https://x.com/weightlesswires/status/2105251378750742998">X</a><a href="https://x.com/search?q=wallet">Search</a></div>',
+              { headers: { "content-type": "text/html" } },
+            ),
+        );
+    });
+    await page.evaluate((t) => window.sentinel.gmgnOpen(t), target);
     await install("answer");
     const report = await page.evaluate(
       (t) => window.sentinel.grokRun(t),
@@ -96,6 +109,12 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
       .windows()
       .find((w) => w.url().startsWith("https://x.com/i/grok"))!;
     expect(await grok.locator("body").getAttribute("data-sent")).toBe("1");
+    await expect(grok.locator("body")).toContainText(
+      "https://x.com/weightlesswires/status/2105251378750742998",
+    );
+    await expect(grok.locator("body")).not.toContainText(
+      "https://x.com/search?q=wallet",
+    );
     await page.bringToFront();
     await page.getByRole("button", { name: "Архив", exact: true }).click();
     await page

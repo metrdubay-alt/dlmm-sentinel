@@ -109,11 +109,16 @@ export class GrokBrowser extends XBrowser {
     if (u.origin !== "https://x.com" || u.pathname !== "/i/grok")
       throw new Error("Grok открыт на другой странице. Анализ остановлен.");
   }
-  async run(config: WorkspaceConfig, parent: BrowserWindow) {
+  async run(
+    config: WorkspaceConfig,
+    parent: BrowserWindow,
+    socialLinks: string[] = [],
+  ) {
     if (this.busy) throw new Error("Анализ Grok уже выполняется.");
     this.busy = true;
     this.cancelled = false;
     const context: GrokContext = {
+      socialLinks,
       target: config.target,
       handle: config.handle,
       requestId: randomUUID(),

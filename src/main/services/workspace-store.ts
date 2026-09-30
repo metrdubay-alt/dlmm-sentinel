@@ -143,6 +143,13 @@ export class WorkspaceStore {
       state.config.relatedAccounts,
       result.answer.relatedAccounts,
     );
+    const retainedHandles = new Set(
+      (state.config.relatedAccounts ?? []).map((a) => a.handle),
+    );
+    for (const key of Object.keys(state.errors)) {
+      if (key.startsWith("moni:") && !retainedHandles.has(key.slice(5)))
+        delete state.errors[key];
+    }
     if (!state.config.handle && result.answer.discoveredProfile)
       state.config.handle = result.answer.discoveredProfile.handle;
     if (!state.config.label && result.answer.tokenSymbol)

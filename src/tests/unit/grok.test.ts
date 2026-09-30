@@ -106,3 +106,33 @@ it("still rejects unsafe flag links and another mint when a flag lacks sources",
     ).toThrow();
   }
 });
+
+it("uses GMGN social clues and rejects a launchpad nickname without an X identity", () => {
+  const socialLinks = [
+    "https://x.com/weightlesswires/status/2105251378750742998",
+  ];
+  expect(buildGrokPrompt({ ...context, socialLinks })).toContain(
+    socialLinks[0],
+  );
+  const result = parseGrokAnswer(
+    JSON.stringify({
+      ...answer,
+      relatedAccounts: [
+        {
+          handle: "gigamantaunanti",
+          role: "creator",
+          source: "https://solscan.io/token/example",
+        },
+        {
+          handle: "weightlesswires",
+          role: "narrative",
+          source: socialLinks[0],
+        },
+      ],
+    }),
+    context,
+  );
+  expect(result.relatedAccounts?.map((a) => a.handle)).toEqual([
+    "weightlesswires",
+  ]);
+});
