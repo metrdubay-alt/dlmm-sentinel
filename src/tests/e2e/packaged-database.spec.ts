@@ -30,7 +30,11 @@ test("packaged app loads its own Prisma engine with fresh database and unrelated
     ).toBeVisible();
     expect(
       (await page.evaluate(() => window.sentinel.settings(undefined))).demoMode,
-    ).toBe(true);
+    ).toBe(false);
+    await expect(page.getByLabel("Режим данных")).toBeHidden();
+    await page.getByText("Настройки режима", { exact: true }).click();
+    await expect(page.getByLabel("Режим данных")).toHaveValue("live");
+    await page.screenshot({ path: "test-results/live-default-settings.png" });
     const details = await app.evaluate(() => ({
       resources: process.resourcesPath,
       engines: (

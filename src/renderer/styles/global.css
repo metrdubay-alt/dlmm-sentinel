@@ -1174,3 +1174,23 @@ button.source-open:hover {
 
 .profile-rules th:nth-child(3), .profile-rules th:nth-child(7) { color:#79dba7; }
 .profile-rules th:nth-child(4), .profile-rules th:nth-child(8) { color:#ef9e9e; }
+
+.mode-settings {
+  position: relative;
+}
+.mode-settings > summary {
+  cursor: pointer;
+  color: #a8c0d0;
+  font-size: 13px;
+}
+.mode-settings .data-mode-control {
+  position: absolute;
+  right: 0;
+  top: 28px;
+  z-index: 30;
+  padding: 12px;
+  border: 1px solid #304454;
+  border-radius: 8px;
+  background: #101a27;
+  white-space: nowrap;
+}

@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 import { analyze } from "../../shared/analysis/analyze";
 import {
-  defaultSettings,
+  defaultSettings as appDefaultSettings,
   type Snapshot,
   type ProviderId,
   type Facts,
@@ -9,6 +9,7 @@ import {
 import { fetchDemoSnapshots } from "../../shared/providers/provider-registry";
 import { demoMint } from "../../shared/providers/mock/fixtures";
 import { commands } from "../../shared/schemas/ipc";
+const defaultSettings = { ...appDefaultSettings, demoMode: true };
 const now = "2026-09-23T12:00:00.000Z";
 const base = () =>
   fetchDemoSnapshots(

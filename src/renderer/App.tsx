@@ -23,7 +23,7 @@ export function App() {
     queryKey: ["settings"],
     queryFn: () => api.settings(undefined),
   });
-  const demo = settings.data?.demoMode ?? true;
+  const demo = settings.data?.demoMode ?? false;
   const client = useQueryClient();
   const mode = useMutation({
     mutationFn: (demoMode: boolean) =>
@@ -89,7 +89,7 @@ export function App() {
           </div>
           <p>Данные хранятся на этом устройстве</p>
           <div className="version">
-            v0.3.43 <span>Источники</span>
+            v0.3.44 <span>Источники</span>
           </div>
         </div>
       </aside>
@@ -99,19 +99,23 @@ export function App() {
             Рабочее пространство <ChevronRight size={14} />{" "}
             {nav.find((n) => n[0] === page)?.[2]}
           </span>
-          <div>
-            <label className="data-mode-control">
-              <FlaskConical size={13} />
-              <select
-                aria-label="Режим данных"
-                disabled={!settings.data || mode.isPending}
-                value={demo ? "mock" : "live"}
-                onChange={(e) => mode.mutate(e.target.value === "mock")}
-              >
-                <option value="mock">ДЕМО-ДАННЫЕ</option>
-                <option value="live">Реальные источники</option>
-              </select>
-            </label>
+          <div className="button-row">
+            <span>{demo ? "ДЕМО-ДАННЫЕ" : "Реальные источники"}</span>
+            <details className="mode-settings">
+              <summary>Настройки режима</summary>
+              <label className="data-mode-control">
+                <FlaskConical size={13} />
+                <select
+                  aria-label="Режим данных"
+                  disabled={!settings.data || mode.isPending}
+                  value={demo ? "mock" : "live"}
+                  onChange={(e) => mode.mutate(e.target.value === "mock")}
+                >
+                  <option value="mock">ДЕМО-ДАННЫЕ</option>
+                  <option value="live">Реальные источники</option>
+                </select>
+              </label>
+            </details>
           </div>
         </header>
         <main>

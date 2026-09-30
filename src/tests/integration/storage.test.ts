@@ -12,6 +12,15 @@ describe("Prisma / SQLite / pipeline", () => {
     dir = await mkdtemp(path.join(tmpdir(), "sentinel-test-"));
     db = await openDatabase(dir, path.resolve("prisma/migrations"));
     service = new AnalysisService(db);
+    await db.userSettings.create({
+      data: {
+        id: "local",
+        settingsJson: JSON.stringify({
+          ...(await service.settings()),
+          demoMode: true,
+        }),
+      },
+    });
   });
   afterAll(async () => {
     await db.$disconnect();

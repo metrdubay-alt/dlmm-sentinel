@@ -10,6 +10,7 @@ const db = await openDatabase(location, path.resolve("prisma/migrations"));
 try {
   if (process.argv.includes("--seed")) {
     const svc = new AnalysisService(db);
+    await svc.saveSettings({ ...(await svc.settings()), demoMode: true });
     for (const scenario of scenarioSchema.options)
       await svc.scan({
         mint: demoMint,

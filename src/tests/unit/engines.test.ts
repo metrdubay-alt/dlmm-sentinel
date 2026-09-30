@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { analyze } from "../../shared/analysis/analyze";
 import {
-  defaultSettings,
+  defaultSettings as appDefaultSettings,
   mintSchema,
   type Scenario,
 } from "../../shared/schemas/domain";
 import { demoMint } from "../../shared/providers/mock/fixtures";
 import { fetchDemoSnapshots } from "../../shared/providers/provider-registry";
+const defaultSettings = { ...appDefaultSettings, demoMode: true };
 const now = "2026-09-23T12:00:00.000Z";
 async function run(scenario: Scenario) {
   const snapshots = await fetchDemoSnapshots(

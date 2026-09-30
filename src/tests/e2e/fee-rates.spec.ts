@@ -19,7 +19,9 @@ test("packaged GMGN capture persists a Coinbase conversion when CoinGecko is blo
   });
   try {
     const page = await app.firstWindow();
-    await expect(page.getByLabel("Режим данных")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Карточка токена", exact: true }),
+    ).toBeVisible();
     const target = {
       chain: "robinhood" as const,
       address: "0xfd1a35778d9798f13c6fb97d29c07a5ce3f7fb5e",
@@ -54,7 +56,9 @@ test("packaged GMGN capture persists a Coinbase conversion when CoinGecko is blo
         throw new Error("Unexpected network request in fee fixture");
       };
     }, target);
-    await page.getByLabel("Режим данных").selectOption("live");
+    expect(
+      (await page.evaluate(() => window.sentinel.settings(undefined))).demoMode,
+    ).toBe(false);
     await expect(page.getByLabel("Режим данных")).toBeEnabled();
     await page.evaluate((t) => window.sentinel.gmgnOpen(t), target);
     const snapshots = await page.evaluate(

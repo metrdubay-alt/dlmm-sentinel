@@ -33,7 +33,10 @@ test("настоящее окно Electron: ввод, veto, evidence, настр
         }
       }),
     ).toBe("blocked");
-    await expect(page.getByLabel("Режим данных")).toHaveValue("mock");
+    await page.getByText("Настройки режима", { exact: true }).click();
+    await expect(page.getByLabel("Режим данных")).toHaveValue("live");
+    await page.getByLabel("Режим данных").selectOption("mock");
+    await expect(page.getByLabel("Режим данных")).toBeEnabled();
     expect(
       await page.evaluate(
         () => typeof (window as unknown as { require: unknown }).require,
@@ -87,7 +90,7 @@ test("настоящее окно Electron: ввод, veto, evidence, настр
     await app.close();
     app = await launch();
     const next = await app.firstWindow();
-    await next.getByRole("button", {name:"Архив",exact:true}).click();
+    await next.getByRole("button", { name: "Архив", exact: true }).click();
     await expect(
       next.getByRole("button", { name: "Открыть отчёт" }).first(),
     ).toBeVisible();

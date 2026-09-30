@@ -70,6 +70,9 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
         intervalMinutes: 15,
       });
     }, target);
+    await page.getByText("Настройки режима", { exact: true }).click();
+    await page.getByLabel("Режим данных").selectOption("mock");
+    await expect(page.getByLabel("Режим данных")).toBeEnabled();
     await expect(
       page.evaluate((t) => window.sentinel.grokRun(t), target),
     ).rejects.toThrow(/демо/);

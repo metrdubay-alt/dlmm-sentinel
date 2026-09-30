@@ -1,4 +1,7 @@
-import { numericProfilesSchema, defaultNumericProfiles } from "../analysis/numeric-profiles";
+import {
+  numericProfilesSchema,
+  defaultNumericProfiles,
+} from "../analysis/numeric-profiles";
 import { z } from "zod";
 import { prospectsRevisionSchema } from "../analysis/prospects";
 import bs58 from "bs58";
@@ -184,7 +187,7 @@ export const settingsSchema = z
 export type Settings = z.infer<typeof settingsSchema>;
 export const defaultSettings: Settings = {
   numericProfiles: defaultNumericProfiles(),
-  demoMode: true,
+  demoMode: false,
   liveMeteora: true,
   liveGmgn: true,
   liveBubblemaps: true,
