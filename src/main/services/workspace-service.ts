@@ -23,8 +23,8 @@ export class WorkspaceService {
     navigate: boolean,
     scope: "all" | "numeric" = "all",
   ) {
-    const before = await this.store.report(target),
-      errors: Record<string, string> = {};
+    let before = await this.store.report(target);
+    const errors: Record<string, string> = {};
     const read = async <T>(
       source: string,
       open: () => Promise<unknown>,
@@ -82,6 +82,31 @@ export class WorkspaceService {
         new Date().toISOString(),
         transferFee,
       );
+    }
+    const sourceLinks = await this.gmgn.socialLinks(target).catch(() => []);
+    if (sourceLinks.length) {
+      const current = await this.store.report(target);
+      const accounts = (current.config.relatedAccounts ?? []).filter(
+        (a) => a.attribution !== "gmgn",
+      );
+      for (const link of sourceLinks) {
+        const handle = new URL(link).pathname.split("/")[1].toLowerCase();
+        if (
+          handle === current.config.handle ||
+          accounts.some((a) => a.handle === handle)
+        )
+          continue;
+        accounts.push({
+          handle,
+          role: "source_link",
+          source: `https://gmgn.ai/${target.chain}/token/${target.address}`,
+          attribution: "gmgn",
+        });
+      }
+      before = await this.store.save({
+        ...current.config,
+        relatedAccounts: accounts.slice(0, 5),
+      });
     }
     const handle = before.config.handle;
     if (handle) {

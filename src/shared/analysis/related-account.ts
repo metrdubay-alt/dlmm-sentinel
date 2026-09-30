@@ -3,7 +3,13 @@ import { moniHandleSchema } from "./moni";
 export const relatedAccountSchema = z
   .object({
     handle: moniHandleSchema,
-    role: z.enum(["creator", "team", "fee_recipient", "narrative"]),
+    role: z.enum([
+      "creator",
+      "team",
+      "fee_recipient",
+      "narrative",
+      "source_link",
+    ]),
     source: z
       .string()
       .url()
@@ -12,7 +18,7 @@ export const relatedAccountSchema = z
         const u = new URL(value);
         return u.protocol === "https:" && !u.username && !u.password;
       }),
-    attribution: z.enum(["grok", "reviewed"]).optional(),
+    attribution: z.enum(["grok", "reviewed", "gmgn"]).optional(),
   })
   .strict();
 export const relatedRoleLabels = {
@@ -20,6 +26,7 @@ export const relatedRoleLabels = {
   team: "Команда",
   fee_recipient: "Получатель комиссий",
   narrative: "Связан с нарративом",
+  source_link: "Профиль из карточки GMGN",
 };
 export function mergeRelatedAccounts(
   saved: z.infer<typeof relatedAccountSchema>[] = [],

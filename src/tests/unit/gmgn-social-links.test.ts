@@ -23,7 +23,12 @@ it("reads X profile/post clues only from the exact token card", async () => {
       executeJavaScript: async (script: string) =>
         runInNewContext(script, {
           URL,
-          document: { querySelectorAll: () => links.map((href) => ({ href })) },
+          document: {
+            querySelectorAll: (selector: string) =>
+              selector.includes("BaseLinkView")
+                ? links.map((href) => ({ href }))
+                : [{ href: "https://x.com/unrelated" }],
+          },
         }),
     },
   };

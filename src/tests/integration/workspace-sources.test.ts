@@ -55,7 +55,10 @@ it("continues GMGN and X while Moni is disabled, and resumes Moni when enabled",
   let moniReads = 0;
   const service = new WorkspaceService(
     store,
-    { capture: async () => gmgn } as unknown as GmgnBrowser,
+    {
+      capture: async () => gmgn,
+      socialLinks: async () => [],
+    } as unknown as GmgnBrowser,
     new GmgnStore(db),
     {
       capture: async () => {
@@ -130,7 +133,7 @@ it("stores a related account score despite missing project score and reloads it 
   const reads: string[] = [];
   const service = new WorkspaceService(
     store,
-    {} as GmgnBrowser,
+    { socialLinks: async () => [] } as unknown as GmgnBrowser,
     new GmgnStore(db),
     {
       isOpen: () => true,
@@ -171,4 +174,62 @@ it("stores a related account score despite missing project score and reloads it 
   expect(restored.config.handle).toBe("project");
   expect(restored.config.relatedAccounts?.[0].role).toBe("fee_recipient");
   expect(restored.relatedMoni?.[0].snapshot?.handle).toBe("recipient");
+});
+
+it("reads a GMGN-linked profile without any Grok account discovery", async () => {
+  dir = await mkdtemp(path.join(tmpdir(), "sentinel-linked-moni-"));
+  db = await openDatabase(dir, path.resolve("prisma/migrations"));
+  const store = new WorkspaceStore(db);
+  const target = {
+    chain: "bsc" as const,
+    address: "0xcafdbce93477261db8250e42bdae6e66733f9e20",
+  };
+  await store.save({
+    target,
+    label: "BAGSPAY",
+    handle: null,
+    relatedAccounts: [],
+    monitor: false,
+    intervalMinutes: 15,
+  });
+  const opened: string[] = [];
+  const service = new WorkspaceService(
+    store,
+    {
+      open: async () => true,
+      capture: async () => {
+        throw Error("numeric unavailable");
+      },
+      socialLinks: async () => ["https://x.com/BagsPay"],
+    } as unknown as GmgnBrowser,
+    new GmgnStore(db),
+    {
+      open: async (h: string) => {
+        opened.push(h);
+      },
+      capture: async (h: string) => ({
+        handle: h,
+        sourceUrl: `https://app.moni.ai/${h}`,
+        observedAt: new Date().toISOString(),
+        score: 115,
+        smarts: 10,
+        visibleSmarts: [],
+        listComplete: false,
+        source: "moni-browser",
+        parserVersion: "moni-profile-1",
+      }),
+    } as unknown as MoniBrowser,
+    new MoniStore(db),
+    {} as XBrowser,
+  );
+  const r = await service.refresh(target, {} as BrowserWindow, true);
+  expect(opened).toEqual(["bagspay"]);
+  expect(r.report.config.handle).toBeNull();
+  expect(r.report.config.relatedAccounts).toContainEqual({
+    handle: "bagspay",
+    role: "source_link",
+    source: `https://gmgn.ai/bsc/token/${target.address}`,
+    attribution: "gmgn",
+  });
+  expect(r.report.relatedMoni?.[0].snapshot?.score).toBe(115);
 });

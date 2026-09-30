@@ -85,7 +85,7 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
           "https",
           () =>
             new Response(
-              '<div id="GlobalScrollDomId"><a href="https://x.com/weightlesswires/status/2105251378750742998">X</a><a href="https://x.com/search?q=wallet">Search</a></div>',
+              '<div id="GlobalScrollDomId" data-sentry-component="BaseLinkView"><a href="https://x.com/weightlesswires/status/2105251378750742998">X</a><a href="https://x.com/search?q=wallet">Search</a></div>',
               { headers: { "content-type": "text/html" } },
             ),
         );

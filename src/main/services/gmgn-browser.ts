@@ -56,7 +56,7 @@ export class GmgnBrowser {
     if (u.origin !== "https://gmgn.ai" || !matches) return [];
     try {
       const links: string[] = await win.webContents.executeJavaScript(
-        `(()=>[...new Set([...document.querySelectorAll('a[href]')].map(e=>e.href).filter(h=>{try{const u=new URL(h);return u.protocol==='https:'&&['x.com','twitter.com'].includes(u.hostname)&&!u.username&&!u.password&&/^\\/[a-zA-Z0-9_]{1,15}(?:\\/status\\/[0-9]+)?\\/?$/.test(u.pathname)&&!['search','home','intent','i','explore','settings','login','signup'].includes(u.pathname.split('/')[1].toLowerCase())}catch{return false}}))].slice(0,8))()`,
+        `(()=>[...new Set([...document.querySelectorAll('[data-sentry-component="BaseLinkView"] a[href]')].map(e=>e.href).filter(h=>{try{const u=new URL(h);return u.protocol==='https:'&&['x.com','twitter.com'].includes(u.hostname)&&!u.username&&!u.password&&/^\\/[a-zA-Z0-9_]{1,15}(?:\\/status\\/[0-9]+)?\\/?$/.test(u.pathname)&&!['search','home','intent','i','explore','settings','login','signup'].includes(u.pathname.split('/')[1].toLowerCase())}catch{return false}}))].slice(0,8))()`,
       );
       return !win.isDestroyed() && win.webContents.getURL() === before
         ? links
