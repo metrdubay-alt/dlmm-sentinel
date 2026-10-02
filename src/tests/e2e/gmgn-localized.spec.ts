@@ -71,3 +71,45 @@ test("Russian GMGN reads labels, unlabelled capitalization and separates holder 
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test("GMGN reads modern sniper rows in both languages and rejects conflicting values", async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), "sentinel-snipers-"));
+  const env = Object.fromEntries(
+    Object.entries(process.env).filter(
+      (e): e is [string, string] => e[1] !== undefined,
+    ),
+  );
+  env.SENTINEL_DATA_DIR = dir;
+  delete env.ELECTRON_RUN_AS_NODE;
+  const executablePath = process.env.SENTINEL_PACKAGED_EXE;
+  const app = await electron.launch({
+    args: executablePath ? [] : ["."],
+    executablePath,
+    env,
+  });
+  try {
+    const page = await app.firstWindow();
+    const row = (label: string, value: string, hidden = false) =>
+      `<div data-sentry-component="CommonItemView" ${hidden ? 'style="display:none"' : ""}><div class="item-title-cn"><span>${label}</span></div><div data-sentry-component="renderSnipers"><svg><text>\uE230</text></svg><div>${value}</div></div></div>`;
+    for (const [markup, expected] of [
+      [row("Snipers", "1.2%"), "1.2%"],
+      [row("Снайперы", "0%"), "0%"],
+      [row("Snipers", "1.2%") + row("Snipers", "9%", true), "1.2%"],
+      [row("Snipers", "1.2%") + row("Snipers", "9%"), ""],
+      [row("Insiders", "7%"), ""],
+      [
+        '<div data-sentry-component="InfoItem"><span class="info-item-title">Snipers</span><span class="info-item-value">2.3%</span></div>',
+        "2.3%",
+      ],
+    ]) {
+      await page.setContent(`<div id="GlobalScrollDomId">${markup}</div>`);
+      const raw = (await page.evaluate(GMGN_READ_SCRIPT)) as {
+        info: Record<string, string>;
+      };
+      expect(raw.info.Snipers).toBe(expected);
+    }
+  } finally {
+    await app.close();
+    await rm(dir, { recursive: true, force: true });
+  }
+});

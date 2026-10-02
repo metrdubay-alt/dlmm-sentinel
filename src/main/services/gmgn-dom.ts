@@ -11,6 +11,10 @@ export const GMGN_READ_SCRIPT = `(() => {
     const rows=[...root.querySelectorAll('[data-sentry-component="InfoItem"]')].filter(e=>matches(clean(e.querySelector('.info-item-title')),label));
     info[label]=rows.length===1?clean(rows[0].querySelector('.info-item-value')):'';
   }
+  const visible=e=>e.getClientRects().length>0&&getComputedStyle(e).visibility==='visible';
+  const sniperRows=[...root.querySelectorAll('[data-sentry-component="InfoItem"], [data-sentry-component="CommonItemView"]')].filter(e=>visible(e)&&matches(clean(e.querySelector('.info-item-title, .item-title-cn')),'Snipers'));
+  const sniperValues=[...new Set(sniperRows.map(e=>clean(e.querySelector('.info-item-value, [data-sentry-component="renderSnipers"]'))).filter(Boolean))];
+  info.Snipers=sniperValues.length===1?sniperValues[0]:'';
   const risk={};
   for(const label of ['Bundler','Phishing']) {
     const labels=[...root.querySelectorAll('.item-title')].filter(e=>matches(clean(e),label));

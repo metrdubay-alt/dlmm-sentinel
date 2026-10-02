@@ -154,3 +154,43 @@ it("compares remaining position with the displayed pool, retaining approximate p
       .byPosition[0].positionToPoolPct,
   ).toBeNull();
 });
+
+it("keeps every numeric field separate and never converts a missing DEV share into zero", () => {
+  const s = read({
+    info: {
+      "Top 10": "13.33%",
+      Holders: "4,049",
+      Snipers: "1.2%",
+      DEV: "0.61%",
+      "Total Fees": "75.75",
+    },
+    pool: { "Market cap": "$723.69K", Holders: "4049" },
+    risk: { Bundler: "33.4%", Phishing: "5.9%" },
+    tooltips: [],
+    watchersText: "336",
+    volumeText: "$73.2K",
+    volumePeriod: "5m",
+  });
+  expect(
+    Object.fromEntries(
+      Object.entries(s.metrics).map(([key, m]) => [key, m.value]),
+    ),
+  ).toEqual({
+    top10Pct: 13.33,
+    bundlersPct: 33.4,
+    phishingPct: 5.9,
+    holderCount: 4049,
+    marketCapUsd: 723690,
+    volume5mUsd: 73200,
+    volume1hUsd: null,
+    totalFeesSolEquivalent: 75.75,
+    snipersPct: 1.2,
+    devPct: 0.61,
+  });
+  expect(s.watchers?.value).toBe(336);
+  expect(read({ info: { DEV: "0%" } }).metrics.devPct.value).toBe(0);
+  expect(read({ info: {} }).metrics.devPct.value).toBeNull();
+  const hour = read({ volumeText: "$923.9K", volumePeriod: "1h" });
+  expect(hour.metrics.volume1hUsd.value).toBe(923900);
+  expect(hour.metrics.volume5mUsd.value).toBeNull();
+});
