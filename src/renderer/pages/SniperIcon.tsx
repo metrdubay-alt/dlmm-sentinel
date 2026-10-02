@@ -1,4 +1,4 @@
-import sniperImage from "../assets/sniper-user.png";
+import sniperImage from "../assets/sniper-selected.png";
 
 export function SniperIcon() {
   return (
@@ -6,15 +6,14 @@ export function SniperIcon() {
       src={sniperImage}
       alt=""
       aria-hidden="true"
-      width={30}
-      height={25}
+      width={38}
+      height={32}
       style={{
         display: "inline-block",
         verticalAlign: "middle",
         marginRight: 6,
         objectFit: "contain",
-        filter: "grayscale(1) contrast(5) invert(1)",
-        mixBlendMode: "screen",
+        filter: "brightness(0) invert(1)",
       }}
     />
   );
