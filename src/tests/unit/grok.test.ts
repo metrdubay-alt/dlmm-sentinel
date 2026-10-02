@@ -173,3 +173,67 @@ it("accepts an evidence-linked fee recipient activity block and keeps older repo
   expect(prompt).toContain("24 часа / 7 дней / 30 дней");
   expect(prompt).toContain("Само получение комиссий");
 });
+it("keeps a separate ten-minute event block with sources and an anchored time window", () => {
+  const recentActivity = {
+    windowStart: "2026-09-26T11:50:00.000Z",
+    windowEnd: context.startedAt,
+    summary: "Дев объявил запуск.",
+    events: [
+      {
+        at: "2026-09-26T11:57:00Z",
+        text: "@dev объявил запуск продукта",
+        significance: "Появился конкретный срок запуска.",
+        sources: ["https://x.com/dev/status/123"],
+      },
+    ],
+  };
+  const parsed = parseGrokAnswer(
+    JSON.stringify({ ...answer, recentActivity }),
+    context,
+  );
+  expect(parsed.recentActivity?.events).toEqual(recentActivity.events);
+  expect(parsed.recentActivity?.windowStart).toBe(recentActivity.windowStart);
+  expect(
+    parseGrokAnswer(JSON.stringify(answer), context).recentActivity,
+  ).toBeUndefined();
+  expect(() =>
+    parseGrokAnswer(
+      JSON.stringify({
+        ...answer,
+        recentActivity: {
+          ...recentActivity,
+          events: [{ ...recentActivity.events[0], sources: [] }],
+        },
+      }),
+      context,
+    ),
+  ).toThrow();
+  const prompt = buildGrokPrompt(context);
+  expect(prompt).toContain("Важная активность за последние 10 минут");
+  expect(prompt).toContain("2026-09-26T11:50:00.000Z");
+  expect(prompt).toContain("подписки или отписки");
+});
+it("excludes old and future events without losing the rest of the Grok report", () => {
+  const event = {
+    at: "2026-09-26T11:49:59Z",
+    text: "Старое сообщение",
+    significance: "Смысл",
+    sources: ["https://x.com/dev/status/123"],
+  };
+  const result = parseGrokAnswer(
+    JSON.stringify({
+      ...answer,
+      recentActivity: {
+        windowStart: "2026-09-26T11:40:00Z",
+        windowEnd: context.startedAt,
+        summary: "События",
+        events: [event, { ...event, at: "2026-09-26T12:00:01Z" }],
+      },
+    }),
+    context,
+  );
+  expect(result.recentActivity?.events).toEqual([]);
+  expect(result.recentActivity?.windowStart).toBe("2026-09-26T11:50:00.000Z");
+  expect(result.recentActivity?.summary).toContain("не подтверждены");
+  expect(result.score).toBe(answer.score);
+});

@@ -147,6 +147,25 @@ export function GrokAnalysis({
               </p>
             </div>
           )}
+          {answer.recentActivity && (
+            <div aria-label="Важная активность за последние 10 минут">
+              <h3>4. Важная активность за последние 10 минут</h3>
+              <p className="muted">
+                {dateText(answer.recentActivity.windowStart)} —{" "}
+                {dateText(answer.recentActivity.windowEnd)}
+              </p>
+              <p>{answer.recentActivity.summary}</p>
+              {answer.recentActivity.events.map((event, index) => (
+                <div key={index} className="grok-recent-event">
+                  <p>
+                    <strong>{dateText(event.at)}</strong> · {event.text}
+                  </p>
+                  <p>{event.significance}</p>
+                  <div className="button-row">{event.sources.map(link)}</div>
+                </div>
+              ))}
+            </div>
+          )}
           {answer.feeRecipientSupport && (
             <div aria-label="Участие получателя комиссий">
               <h3>Участие получателя комиссий</h3>
