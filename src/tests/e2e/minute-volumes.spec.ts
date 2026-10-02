@@ -129,6 +129,7 @@ test("ten completed SOL minute volumes persist and follow the selected profile",
     await expect(block).not.toContainText("Минимальный объём");
     await expect(block).not.toContainText("Пересчёт");
     await block.screenshot({ path: "test-results/minute-volumes.png" });
+    await block.locator("xpath=ancestor::section[1]").screenshot({ path: "test-results/numeric-layout.png" });
     await page
       .getByLabel("Профиль оценки", { exact: true })
       .selectOption("slowcook");

@@ -16,7 +16,8 @@ import { relatedRoleLabels } from "../../shared/analysis/related-account";
 import { buildGrokPrompt } from "../../shared/analysis/grok";
 import { GrokAnalysis } from "./GrokAnalysis";
 import { useUi } from "../stores/ui";
-import { useState, useRef, type ReactNode } from "react";
+import { Fragment, useState, useRef, type ReactNode } from "react";
+import { SniperIcon } from "./SniperIcon";
 import { PoolPanel } from "./PoolPanel";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, dateText } from "../lib/api";
@@ -668,74 +669,99 @@ function NumericSummary({
                   {ageTone.redFlag && <RedFlag hint={ageTone.hint} />}
                 </td>
               </tr>
-              {Object.entries(s.metrics).map(([key, m]) => {
+              {(
+                [
+                  "top10Pct",
+                  "devPct",
+                  "bundlersPct",
+                  "phishingPct",
+                  "snipersPct",
+                  "holderCount",
+                  "marketCapUsd",
+                  "totalFeesSolEquivalent",
+                  "volume5mUsd",
+                  "volume1hUsd",
+                ] as const
+              ).map((key) => {
+                const m = s.metrics[key];
                 const tone = colour(
                   key,
                   m.precision === "missing" ? null : m.value,
                 );
                 return (
-                  <tr key={key}>
-                    <td>
-                      {key === "totalFeesSolEquivalent" &&
-                      m.value == null &&
-                      s.nativeFees?.amount.value != null
-                        ? "Total Fees"
-                        : metricLabels[key as keyof typeof metricLabels]}
-                    </td>
-                    <td>
-                      <span
-                        className="metric-value"
-                        data-tone={tone.kind}
-                        style={metricToneStyle(tone)}
-                        title={
-                          (m.precision === "rounded"
-                            ? "Приблизительное значение. "
-                            : "") + tone.hint
-                        }
-                      >
-                        {m.precision === "rounded" ? "≈ " : ""}
-                        {key === "totalFeesSolEquivalent"
-                          ? m.value == null &&
-                            s.nativeFees?.amount.value != null
-                            ? `${feeDisplay(s.nativeFees.amount)} ${s.nativeFees.asset} · курс SOL недоступен`
-                            : feeDisplay(m)
-                          : m.display || "Нет данных"}
-                      </span>
-                      {tone.redFlag && (
-                        <RedFlag
-                          hint={
+                  <Fragment key={key}>
+                    <tr>
+                      <td>
+                        {key === "snipersPct" && <SniperIcon />}
+                        {key === "totalFeesSolEquivalent" &&
+                        m.value == null &&
+                        s.nativeFees?.amount.value != null
+                          ? "Total Fees"
+                          : metricLabels[key as keyof typeof metricLabels]}
+                      </td>
+                      <td>
+                        <span
+                          className="metric-value"
+                          data-tone={tone.kind}
+                          style={metricToneStyle(tone)}
+                          title={
                             (m.precision === "rounded"
-                              ? "По приблизительному значению: "
+                              ? "Приблизительное значение. "
                               : "") + tone.hint
                           }
-                        />
-                      )}
-                    </td>
-                  </tr>
+                        >
+                          {m.precision === "rounded" ? "≈ " : ""}
+                          {key === "totalFeesSolEquivalent"
+                            ? m.value == null &&
+                              s.nativeFees?.amount.value != null
+                              ? `${feeDisplay(s.nativeFees.amount)} ${s.nativeFees.asset} · курс SOL недоступен`
+                              : feeDisplay(m)
+                            : m.display || "Нет данных"}
+                        </span>
+                        {tone.redFlag && (
+                          <RedFlag
+                            hint={
+                              (m.precision === "rounded"
+                                ? "По приблизительному значению: "
+                                : "") + tone.hint
+                            }
+                          />
+                        )}
+                      </td>
+                    </tr>
+                    {key === "phishingPct" && (
+                      <tr>
+                        <td>Бандлеры + phishing, %</td>
+                        <td>
+                          <span
+                            className="metric-value"
+                            data-tone={combinedTone.kind}
+                            style={metricToneStyle(combinedTone)}
+                            title={combinedTone.hint}
+                          >
+                            {combined == null
+                              ? "Нет данных"
+                              : `${s.metrics.bundlersPct.precision === "rounded" || s.metrics.phishingPct.precision === "rounded" ? "≈ " : ""}${combined.toLocaleString("ru-RU", { maximumFractionDigits: 4 })}%`}
+                          </span>
+                          {combinedTone.redFlag && (
+                            <RedFlag hint={combinedTone.hint} />
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                 );
               })}
-              <tr>
-                <td>Бандлеры + phishing, %</td>
-                <td>
-                  <span
-                    className="metric-value"
-                    data-tone={combinedTone.kind}
-                    style={metricToneStyle(combinedTone)}
-                    title={combinedTone.hint}
-                  >
-                    {combined == null
-                      ? "Нет данных"
-                      : `${s.metrics.bundlersPct.precision === "rounded" || s.metrics.phishingPct.precision === "rounded" ? "≈ " : ""}${combined.toLocaleString("ru-RU", { maximumFractionDigits: 4 })}%`}
-                  </span>
-                  {combinedTone.redFlag && <RedFlag hint={combinedTone.hint} />}
-                </td>
-              </tr>
               <tr>
                 <td>
                   <Eye
                     size={16}
                     aria-hidden="true"
-                    style={{ verticalAlign: "middle", marginRight: 6 }}
+                    style={{
+                      display: "inline-block",
+                      verticalAlign: "middle",
+                      marginRight: 6,
+                    }}
                   />
                   Наблюдатели GMGN
                 </td>

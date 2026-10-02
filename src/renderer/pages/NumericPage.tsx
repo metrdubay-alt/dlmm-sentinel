@@ -268,7 +268,11 @@ export function NumericPage() {
               <Eye
                 size={16}
                 aria-hidden="true"
-                style={{ verticalAlign: "middle", marginRight: 6 }}
+                style={{
+                  display: "inline-block",
+                  verticalAlign: "middle",
+                  marginRight: 6,
+                }}
               />
               Наблюдатели GMGN: {latest.watchers?.display || "Нет данных"}.
               Поправка:{" "}
