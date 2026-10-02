@@ -237,3 +237,35 @@ it("excludes old and future events without losing the rest of the Grok report", 
   expect(result.recentActivity?.summary).toContain("не подтверждены");
   expect(result.score).toBe(answer.score);
 });
+it("keeps a report with an empty ticker as unknown without weakening identity checks", () => {
+  for (const tokenSymbol of ["", "  \n\t", null]) {
+    const parsed = parseGrokAnswer(
+      JSON.stringify({ ...answer, tokenSymbol }),
+      context,
+    );
+    expect(parsed.tokenSymbol).toBeNull();
+    expect(parsed.score).toBe(64);
+    expect(parsed.description).toBe(answer.description);
+    expect(() =>
+      parseGrokAnswer(
+        JSON.stringify({
+          ...answer,
+          tokenSymbol,
+          mint: "0x1111111111111111111111111111111111111111",
+        }),
+        context,
+      ),
+    ).toThrow();
+  }
+  for (const tokenSymbol of ["🙈🙉🙊", "ОБЕЗЬЯНЫ", "MONKEY"]) {
+    expect(
+      parseGrokAnswer(JSON.stringify({ ...answer, tokenSymbol }), context)
+        .tokenSymbol,
+    ).toBe(tokenSymbol);
+  }
+  for (const tokenSymbol of [42, {}, "a".repeat(41)]) {
+    expect(() =>
+      parseGrokAnswer(JSON.stringify({ ...answer, tokenSymbol }), context),
+    ).toThrow();
+  }
+});

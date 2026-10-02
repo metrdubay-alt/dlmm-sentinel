@@ -1,3 +1,4 @@
+import { Eye } from "lucide-react";
 import { MinuteVolumes } from "./MinuteVolumes";
 import {
   defaultNumericProfiles,
@@ -730,7 +731,14 @@ function NumericSummary({
                 </td>
               </tr>
               <tr>
-                <td>Наблюдатели GMGN</td>
+                <td>
+                  <Eye
+                    size={16}
+                    aria-hidden="true"
+                    style={{ verticalAlign: "middle", marginRight: 6 }}
+                  />
+                  Наблюдатели GMGN
+                </td>
                 <td>
                   <span
                     className="metric-value"

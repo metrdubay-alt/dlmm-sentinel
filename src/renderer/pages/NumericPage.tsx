@@ -1,3 +1,4 @@
+import { Eye } from "lucide-react";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -264,8 +265,13 @@ export function NumericPage() {
               не отменяет вето. Покрытие весов не равно достоверности источника.
             </p>
             <p>
-              Наблюдатели GMGN (глаз):{" "}
-              {latest.watchers?.display || "Нет данных"}. Поправка:{" "}
+              <Eye
+                size={16}
+                aria-hidden="true"
+                style={{ verticalAlign: "middle", marginRight: 6 }}
+              />
+              Наблюдатели GMGN: {latest.watchers?.display || "Нет данных"}.
+              Поправка:{" "}
               {score.watchers.adjustment === null
                 ? "неизвестна"
                 : `${score.watchers.adjustment > 0 ? "+" : ""}${score.watchers.adjustment} баллов`}
