@@ -46,10 +46,7 @@ test("ten completed SOL minute volumes persist and follow the selected profile",
                   time: end - 600000 + i * 60000,
                   volume: String(volume),
                 })),
-                _debug_tpool: {
-                  base_address: target.address,
-                  pool_address: target.address,
-                },
+                _debug_tpool: null,
               },
             });
           }

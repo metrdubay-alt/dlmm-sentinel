@@ -115,3 +115,14 @@ it("reads older five-candle archives without fabricating the missing five minute
   expect(loaded.candles.slice(-5)).toEqual(old.candles);
   expect(minimumMinuteVolume(loaded)).toBeNull();
 });
+
+it("accepts valid candles when GMGN omits debug pool metadata with null", () => {
+  const data = raw(Array(10).fill(40000));
+  const result = minuteVolumeSnapshot(
+    { ...data, data: { ...data.data, _debug_tpool: null } },
+    now,
+    quote,
+  );
+  expect(result.candles.map((c) => c.volumeSol)).toEqual(Array(10).fill(400));
+  expect(result.issue).toBeUndefined();
+});

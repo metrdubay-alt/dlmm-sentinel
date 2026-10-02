@@ -75,9 +75,7 @@ export function minuteVolumeSnapshot(
       code: z.literal(0),
       data: z.object({
         list: z.array(z.unknown()).max(2000),
-        _debug_tpool: z
-          .object({ pool_address: z.string().max(100) })
-          .optional(),
+        _debug_tpool: z.object({ pool_address: z.string().max(100) }).nullish(),
       }),
     })
     .safeParse(raw);

@@ -41,7 +41,7 @@ export async function captureMinuteVolumes(
   const token = z
     .object({
       data: z.object({
-        _debug_tpool: z.object({ base_address: z.string() }).optional(),
+        _debug_tpool: z.object({ base_address: z.string() }).nullish(),
       }),
     })
     .safeParse(raw);
