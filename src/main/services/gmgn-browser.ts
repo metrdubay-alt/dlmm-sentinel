@@ -1,3 +1,4 @@
+import { captureMinuteVolumes } from "./minute-volume-source";
 import { GMGN_READ_SCRIPT } from "./gmgn-dom";
 import { readConnection } from "./source-connection";
 import { loadSourcePage } from "./source-navigation";
@@ -174,6 +175,12 @@ export class GmgnBrowser {
       if (!win.isDestroyed() && win.webContents.getURL() === url)
         await selectPeriod("5m");
     }
+    const minuteVolumes = await captureMinuteVolumes(target, (script) =>
+      win.webContents.executeJavaScript(script),
+    );
+    if (win.isDestroyed() || win.webContents.getURL() !== url)
+      throw new Error("Карточка изменилась при чтении.");
+    if (minuteVolumes) snapshot.minuteVolumes = minuteVolumes;
     return enrichFees(snapshot);
   }
 

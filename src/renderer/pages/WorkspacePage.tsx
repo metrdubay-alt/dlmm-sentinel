@@ -1,3 +1,4 @@
+import { MinuteVolumes } from "./MinuteVolumes";
 import {
   defaultNumericProfiles,
   profileTone,
@@ -744,6 +745,9 @@ function NumericSummary({
               </tr>
             </tbody>
           </table>
+          {r.config.target.chain === "sol" && (
+            <MinuteVolumes snapshot={s.minuteVolumes} profile={profile} />
+          )}
           {r.errors.gmgn && (
             <p role="alert">
               Обновить GMGN не удалось. Показан сохранённый снимок.

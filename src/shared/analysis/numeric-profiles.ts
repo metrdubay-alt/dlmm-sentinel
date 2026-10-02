@@ -11,6 +11,7 @@ export const profileMetricLabels = {
   phishingPct: "Phishing, %",
   combinedPct: "Бандлеры + phishing, %",
   volume5mUsd: "Объём за 5 минут, $",
+  minuteVolumeSol: "V каждой из 5 минутных свечей, SOL · только Solana",
   holderCountLow: "Холдеры · капа $300 тыс.–1 млн",
   holderCountHigh: "Холдеры · капа >$1 млн",
   totalFeesSolEquivalent: "Total Fees, эквивалент SOL",
@@ -61,9 +62,20 @@ export const numericProfileSchema = z
   .object({
     id: z.string().min(1).max(80),
     name: z.string().trim().min(1, "Укажите название").max(60),
-    rules: z.object(shape).strict(),
+    rules: z
+      .object(shape)
+      .extend({ minuteVolumeSol: profileRuleSchema.optional() })
+      .strict(),
   })
-  .strict();
+  .strict()
+  .transform((p) => ({
+    ...p,
+    rules: {
+      ...p.rules,
+      minuteVolumeSol:
+        p.rules.minuteVolumeSol ?? higher(200, 300, null, p.id === "runner"),
+    },
+  }));
 export type NumericProfile = z.infer<typeof numericProfileSchema>;
 export const numericProfilesSchema = z
   .array(numericProfileSchema)
@@ -142,6 +154,7 @@ export function defaultNumericProfiles(): NumericProfile[] {
         id === "runner"
           ? higher(80000, 100000, 50000)
           : higher(40000, 50000, 25000),
+      minuteVolumeSol: higher(200, 300, null, id === "runner"),
       holderCountLow: higher(1000, 1500, 1000),
       holderCountHigh: higher(1800, 3000, 1800),
       totalFeesSolEquivalent: higher(150, 200, 100, id === "slowcook"),

@@ -1,3 +1,4 @@
+import { minuteVolumeSchema } from "./minute-volume";
 import { z } from "zod";
 import { mintSchema } from "../schemas/domain";
 import type { StrategyInput } from "./strategy";
@@ -91,6 +92,7 @@ export const gmgnSnapshotSchema = z
         usd: z.number().nonnegative().finite(),
       })
       .optional(),
+    minuteVolumes: minuteVolumeSchema.optional(),
     watchers: measurementSchema.optional(),
     displayedPoolLiquidity: measurementSchema.optional(),
     metrics: z.object({
