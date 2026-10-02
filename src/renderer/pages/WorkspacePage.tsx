@@ -18,6 +18,7 @@ import { GrokAnalysis } from "./GrokAnalysis";
 import { useUi } from "../stores/ui";
 import { Fragment, useState, useRef, type ReactNode } from "react";
 import { SniperIcon } from "./SniperIcon";
+import { FeesIcon } from "./FeesIcon";
 import { PoolPanel } from "./PoolPanel";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, dateText } from "../lib/api";
@@ -671,14 +672,14 @@ function NumericSummary({
               </tr>
               {(
                 [
+                  "marketCapUsd",
+                  "holderCount",
+                  "totalFeesSolEquivalent",
                   "top10Pct",
                   "devPct",
                   "bundlersPct",
                   "phishingPct",
                   "snipersPct",
-                  "holderCount",
-                  "marketCapUsd",
-                  "totalFeesSolEquivalent",
                   "volume5mUsd",
                   "volume1hUsd",
                 ] as const
@@ -693,6 +694,7 @@ function NumericSummary({
                     <tr>
                       <td>
                         {key === "snipersPct" && <SniperIcon />}
+                        {key === "totalFeesSolEquivalent" && <FeesIcon />}
                         {key === "totalFeesSolEquivalent" &&
                         m.value == null &&
                         s.nativeFees?.amount.value != null
@@ -729,6 +731,35 @@ function NumericSummary({
                         )}
                       </td>
                     </tr>
+                    {key === "holderCount" && (
+                      <tr>
+                        <td>
+                          <Eye
+                            size={16}
+                            aria-hidden="true"
+                            style={{
+                              display: "inline-block",
+                              verticalAlign: "middle",
+                              marginRight: 6,
+                            }}
+                          />
+                          Наблюдатели GMGN
+                        </td>
+                        <td>
+                          <span
+                            className="metric-value"
+                            data-tone={watcherTone.kind}
+                            style={metricToneStyle(watcherTone)}
+                            title={watcherTone.hint}
+                          >
+                            {s.watchers?.display || "Нет данных"}
+                          </span>
+                          {watcherTone.redFlag && (
+                            <RedFlag hint={watcherTone.hint} />
+                          )}
+                        </td>
+                      </tr>
+                    )}
                     {key === "phishingPct" && (
                       <tr>
                         <td>Бандлеры + phishing, %</td>
@@ -752,31 +783,6 @@ function NumericSummary({
                   </Fragment>
                 );
               })}
-              <tr>
-                <td>
-                  <Eye
-                    size={16}
-                    aria-hidden="true"
-                    style={{
-                      display: "inline-block",
-                      verticalAlign: "middle",
-                      marginRight: 6,
-                    }}
-                  />
-                  Наблюдатели GMGN
-                </td>
-                <td>
-                  <span
-                    className="metric-value"
-                    data-tone={watcherTone.kind}
-                    style={metricToneStyle(watcherTone)}
-                    title={watcherTone.hint}
-                  >
-                    {s.watchers?.display || "Нет данных"}
-                  </span>
-                  {watcherTone.redFlag && <RedFlag hint={watcherTone.hint} />}
-                </td>
-              </tr>
             </tbody>
           </table>
           {r.config.target.chain === "sol" && (
