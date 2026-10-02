@@ -1212,9 +1212,9 @@ button.source-open:hover {
 }
 .minute-volume-chart {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(10, minmax(0, 1fr));
   gap: 12px;
-  max-width: 700px;
+  max-width: 1100px;
   margin: 20px 0;
 }
 .minute-volume-column {
@@ -1260,7 +1260,8 @@ button.source-open:hover {
 }
 @media (max-width: 600px) {
   .minute-volume-chart {
-    gap: 5px;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 18px 5px;
   }
   .minute-volume-number {
     font-size: 11px;

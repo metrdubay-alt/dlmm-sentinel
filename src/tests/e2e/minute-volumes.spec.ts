@@ -2,7 +2,7 @@ import { test, expect, _electron as electron } from "@playwright/test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-test("five completed SOL minute volumes persist and follow the selected profile", async () => {
+test("ten completed SOL minute volumes persist and follow the selected profile", async () => {
   const dir = await mkdtemp(path.join(tmpdir(), "sentinel-minute-"));
   const env = Object.fromEntries(
     Object.entries(process.env).filter(
@@ -39,12 +39,13 @@ test("five completed SOL minute volumes persist and follow the selected profile"
             return Response.json({
               code: 0,
               data: {
-                list: [19900, 20000, 30000, 30100, 45000, 900000].map(
-                  (volume, i) => ({
-                    time: end - 300000 + i * 60000,
-                    volume: String(volume),
-                  }),
-                ),
+                list: [
+                  19900, 20000, 30000, 30100, 45000, 40000, 40000, 40000, 40000,
+                  40000, 900000,
+                ].map((volume, i) => ({
+                  time: end - 600000 + i * 60000,
+                  volume: String(volume),
+                })),
                 _debug_tpool: {
                   base_address: target.address,
                   pool_address: target.address,
@@ -96,7 +97,7 @@ test("five completed SOL minute volumes persist and follow the selected profile"
       target,
     );
     expect(report.gmgn?.minuteVolumes?.candles.map((c) => c.volumeSol)).toEqual(
-      [199, 200, 300, 301, 450],
+      [199, 200, 300, 301, 450, 400, 400, 400, 400, 400],
     );
     await page.reload();
     await page.getByRole("button", { name: "Архив", exact: true }).click();
@@ -105,17 +106,31 @@ test("five completed SOL minute volumes persist and follow the selected profile"
       .filter({ hasText: "MINUTE V" })
       .getByRole("button", { name: "Открыть карточку", exact: true })
       .click();
-    const block = page.getByLabel("V свечей за последние 5 минут", {
+    const block = page.getByLabel("V, SOL/min за последние 10 минут", {
       exact: true,
     });
     await expect(block).toBeVisible();
-    await expect(block.getByRole("listitem")).toHaveCount(5);
+    await expect(block).toContainText("Снимок");
+    await expect(block.getByRole("listitem")).toHaveCount(10);
     expect(
       await block
         .getByRole("listitem")
         .evaluateAll((items) => items.map((e) => e.getAttribute("data-tone"))),
-    ).toEqual(["bad", "neutral", "neutral", "good", "good"]);
+    ).toEqual([
+      "bad",
+      "neutral",
+      "neutral",
+      "good",
+      "good",
+      "good",
+      "good",
+      "good",
+      "good",
+      "good",
+    ]);
     await expect(block).toContainText("условие не выполнено");
+    await expect(block).not.toContainText("Минимальный объём");
+    await expect(block).not.toContainText("Пересчёт");
     await block.screenshot({ path: "test-results/minute-volumes.png" });
     await page
       .getByLabel("Профиль оценки", { exact: true })
@@ -135,7 +150,7 @@ test("five completed SOL minute volumes persist and follow the selected profile"
     await page
       .getByRole("button", { name: "Настроить профили", exact: true })
       .click();
-    const label = "V каждой из 5 минутных свечей, SOL · только Solana";
+    const label = "V каждой из 10 минутных свечей, SOL · только Solana";
     await expect(page.getByLabel(label + ": red", { exact: true })).toHaveValue(
       "200",
     );
@@ -161,7 +176,7 @@ test("five completed SOL minute volumes persist and follow the selected profile"
       (t) => window.sentinel.gmgnHistory(t),
       target,
     );
-    expect(history.at(-1)?.minuteVolumes?.candles).toHaveLength(5);
+    expect(history.at(-1)?.minuteVolumes?.candles).toHaveLength(10);
   } finally {
     await app.close();
     await rm(dir, { recursive: true, force: true });

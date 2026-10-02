@@ -1,6 +1,7 @@
 import { expect, it } from "vitest";
 import {
   minuteVolumeSnapshot,
+  minuteVolumeSchema,
   parseSolQuote,
   minimumMinuteVolume,
 } from "../../shared/analysis/minute-volume";
@@ -20,21 +21,29 @@ const raw = (volumes: number[]) => ({
   code: 0,
   data: {
     list: volumes.map((volume, i) => ({
-      time: (end - 300 + i * 60) * 1000,
+      time: (end - 600 + i * 60) * 1000,
       volume: String(volume),
     })),
   },
 });
-it("uses exactly five completed aligned minutes, not the open candle or five-minute average", () => {
+it("uses exactly ten completed aligned minutes, not the open candle or ten-minute average", () => {
   const result = minuteVolumeSnapshot(
-    raw([19900, 20000, 30000, 30100, 50000, 999999]),
+    raw([
+      19900, 20000, 30000, 30100, 50000, 40000, 40000, 40000, 40000, 40000,
+      999999,
+    ]),
     now,
     quote,
   );
   expect(result.candles.map((c) => c.volumeSol)).toEqual([
-    199, 200, 300, 301, 500,
+    199, 200, 300, 301, 500, 400, 400, 400, 400, 400,
   ]);
   expect(result.candles.map((c) => c.time)).toEqual([
+    end - 600,
+    end - 540,
+    end - 480,
+    end - 420,
+    end - 360,
     end - 300,
     end - 240,
     end - 180,
@@ -93,4 +102,16 @@ it("adds runner-only default thresholds to old profiles while preserving custom 
     ),
   ).toEqual(["bad", "neutral", "neutral", "good"]);
   expect(profileTone(migrated[1], "minuteVolumeSol", 100).kind).toBe("neutral");
+});
+
+it("reads older five-candle archives without fabricating the missing five minutes", () => {
+  const complete = minuteVolumeSnapshot(raw(Array(10).fill(40000)), now, quote);
+  const old = { ...complete, candles: complete.candles.slice(-5) };
+  const loaded = minuteVolumeSchema.parse(old);
+  expect(loaded.candles).toHaveLength(10);
+  expect(loaded.candles.slice(0, 5).every((c) => c.volumeSol === null)).toBe(
+    true,
+  );
+  expect(loaded.candles.slice(-5)).toEqual(old.candles);
+  expect(minimumMinuteVolume(loaded)).toBeNull();
 });

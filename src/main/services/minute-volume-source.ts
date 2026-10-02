@@ -13,7 +13,7 @@ export function minuteReadScript(address: string) {
   const match=performance.getEntriesByType('resource').map(e=>e.name).reverse().find(name=>{try{const u=new URL(name);return u.origin===location.origin&&u.pathname===path}catch{return false}});
   const url=new URL(match||path,location.origin);
   for(const key of ['from','to','from_timestamp','to_timestamp','before_timestamp'])url.searchParams.delete(key);
-  url.searchParams.set('resolution','1m');url.searchParams.set('limit','10');
+  url.searchParams.set('resolution','1m');url.searchParams.set('limit','20');
   const response=await fetch(url.href,{credentials:'same-origin',cache:'no-store',redirect:'error',signal:AbortSignal.timeout(10000)});
   if(!response.ok)throw Error('Minute candles unavailable');
   const raw=await response.json();

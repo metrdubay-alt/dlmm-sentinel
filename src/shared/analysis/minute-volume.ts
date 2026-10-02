@@ -25,10 +25,27 @@ export const minuteVolumeSchema = z
           })
           .strict(),
       )
-      .length(5),
+      .refine((rows) => rows.length === 5 || rows.length === 10),
     issue: z.string().max(300).optional(),
   })
-  .strict();
+  .strict()
+  .transform((s) =>
+    s.candles.length === 10
+      ? s
+      : {
+          ...s,
+          candles: [
+            ...Array.from({ length: 5 }, (_, i) => ({
+              time: s.endEpochSeconds - 600 + i * 60,
+              volumeUsd: null,
+              volumeSol: null,
+            })),
+            ...s.candles,
+          ],
+          issue:
+            "Сохранены только пять минут. Обновите числовой анализ для десяти свечей.",
+        },
+  );
 export type MinuteVolumeSnapshot = z.infer<typeof minuteVolumeSchema>;
 export function parseSolQuote(raw: unknown, now: number): SolQuote | null {
   const p = z
@@ -76,7 +93,7 @@ export function minuteVolumeSnapshot(
       if (!p.success) continue;
       const time = p.data.time / 1000,
         volume = Number(p.data.volume);
-      if (time % 60 !== 0 || time < end - 300 || time >= end) continue;
+      if (time % 60 !== 0 || time < end - 600 || time >= end) continue;
       values.set(
         time,
         values.has(time) || !Number.isFinite(volume) || volume < 0
@@ -90,8 +107,8 @@ export function minuteVolumeSnapshot(
     Date.parse(quote.observedAt) - now <= 30000
       ? solQuoteSchema.parse(quote)
       : null;
-  const candles = Array.from({ length: 5 }, (_, i) => {
-    const time = end - 300 + i * 60,
+  const candles = Array.from({ length: 10 }, (_, i) => {
+    const time = end - 600 + i * 60,
       volumeUsd = values.get(time) ?? null;
     const converted =
       volumeUsd !== null && freshQuote ? volumeUsd / freshQuote.usd : null;
@@ -114,7 +131,7 @@ export function minuteVolumeSnapshot(
     issue: !parsed.success
       ? "Минутные свечи GMGN недоступны."
       : candles.some((c) => c.volumeUsd === null)
-        ? "Не все пять завершённых минут получены."
+        ? "Не все десять завершённых минут получены."
         : !freshQuote
           ? "Свежий курс SOL недоступен."
           : undefined,

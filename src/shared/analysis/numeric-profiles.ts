@@ -11,7 +11,7 @@ export const profileMetricLabels = {
   phishingPct: "Phishing, %",
   combinedPct: "Бандлеры + phishing, %",
   volume5mUsd: "Объём за 5 минут, $",
-  minuteVolumeSol: "V каждой из 5 минутных свечей, SOL · только Solana",
+  minuteVolumeSol: "V каждой из 10 минутных свечей, SOL · только Solana",
   holderCountLow: "Холдеры · капа $300 тыс.–1 млн",
   holderCountHigh: "Холдеры · капа >$1 млн",
   totalFeesSolEquivalent: "Total Fees, эквивалент SOL",

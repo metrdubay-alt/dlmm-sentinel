@@ -26,12 +26,12 @@ it("skips other networks and still returns candle gaps when the source fails", a
   expect(read).not.toHaveBeenCalled();
   expect(fetcher).not.toHaveBeenCalled();
   const result = await captureMinuteVolumes(target, read, fetcher, () => now);
-  expect(result?.candles).toHaveLength(5);
+  expect(result?.candles).toHaveLength(10);
   expect(result?.candles.every((c) => c.volumeSol === null)).toBe(true);
 });
 it("reads real individual volumes and rejects a response for another token", async () => {
-  const list = Array.from({ length: 6 }, (_, i) => ({
-    time: Date.parse("2026-10-02T13:25:00Z") + i * 60000,
+  const list = Array.from({ length: 11 }, (_, i) => ({
+    time: Date.parse("2026-10-02T13:20:00Z") + i * 60000,
     volume: "40000",
   }));
   const fetcher = vi.fn(
@@ -51,7 +51,7 @@ it("reads real individual volumes and rejects a response for another token", asy
     (await captureMinuteVolumes(target, read, fetcher, () => now))?.candles.map(
       (c) => c.volumeSol,
     ),
-  ).toEqual([400, 400, 400, 400, 400]);
+  ).toEqual(Array(10).fill(400));
   const wrong = async () => ({
     code: 0,
     data: { list, _debug_tpool: { base_address: "other" } },
@@ -73,8 +73,8 @@ it("fixes the completed-minute window before a request crosses the minute bounda
     return {
       code: 0,
       data: {
-        list: Array.from({ length: 6 }, (_, i) => ({
-          time: end - 300000 + i * 60000,
+        list: Array.from({ length: 11 }, (_, i) => ({
+          time: end - 600000 + i * 60000,
           volume: "10000",
         })),
       },

@@ -1,3 +1,4 @@
+import { dateText } from "../lib/api";
 import type { NumericProfile } from "../../shared/analysis/numeric-profiles";
 import { profileTone } from "../../shared/analysis/numeric-profiles";
 import {
@@ -5,7 +6,6 @@ import {
   type MinuteVolumeSnapshot,
 } from "../../shared/analysis/minute-volume";
 import { metricToneStyle } from "../lib/metric-tone";
-import { dateText } from "../lib/api";
 const number = (v: number) =>
   v.toLocaleString("ru-RU", { maximumFractionDigits: 2 });
 export function MinuteVolumes({
@@ -32,23 +32,20 @@ export function MinuteVolumes({
     ...(snapshot?.candles.map((c) => c.volumeSol ?? 0) ?? []),
   );
   return (
-    <div className="minute-volumes" aria-label="V свечей за последние 5 минут">
-      <h3>V свечей за последние 5 минут · SOL</h3>
+    <div
+      className="minute-volumes"
+      aria-label="V, SOL/min за последние 10 минут"
+    >
+      <h3>V, SOL/min за последние 10 минут</h3>
       {!snapshot ? (
-        <p className="muted">
-          Нажмите «Обновить числовой анализ», чтобы получить пять завершённых
-          минутных свечей.
-        </p>
+        <p className="muted">Нет данных</p>
       ) : (
         <>
-          <p className="muted">
-            Пять завершённых минут · график GMGN · снимок{" "}
-            {dateText(snapshot.observedAt)}
-          </p>
+          <p className="muted">Снимок {dateText(snapshot.observedAt)}</p>
           <div
             className="minute-volume-chart"
             role="list"
-            aria-label="Объёмы пяти минутных свечей"
+            aria-label="Объёмы десяти минутных свечей"
           >
             {snapshot.candles.map((c) => {
               const colour = tone(c.volumeSol);
@@ -93,16 +90,6 @@ export function MinuteVolumes({
               );
             })}
           </div>
-          <p>
-            Минимальный объём минуты:{" "}
-            <span
-              className="metric-value"
-              style={metricToneStyle(tone(min))}
-              data-tone={tone(min).kind}
-            >
-              {min === null ? "Нет полных данных" : `≈ ${number(min)} SOL`}
-            </span>
-          </p>
           {rule?.enabled && (
             <p className="muted">
               {profile!.name}: каждая минута{" "}
@@ -127,22 +114,6 @@ export function MinuteVolumes({
               {number(rule.green)}, красный{" "}
               {rule.direction === "higher" ? "<" : ">"}
               {number(rule.red)} SOL/мин.
-            </p>
-          )}
-          {snapshot.issue && (
-            <p role="status" className="muted">
-              {snapshot.issue}
-            </p>
-          )}
-          {snapshot.quote && (
-            <p className="muted">
-              Пересчёт USD → SOL: 1 SOL = ${number(snapshot.quote.usd)} ·{" "}
-              {snapshot.quote.source}, {dateText(snapshot.quote.observedAt)}.
-            </p>
-          )}
-          {snapshot.poolAddress && (
-            <p className="muted minute-pool">
-              Пул графика GMGN: {snapshot.poolAddress}
             </p>
           )}
         </>
