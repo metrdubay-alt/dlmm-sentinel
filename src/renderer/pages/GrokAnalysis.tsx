@@ -149,7 +149,7 @@ export function GrokAnalysis({
           )}
           {answer.recentActivity && (
             <div aria-label="Важная активность за последние 10 минут">
-              <h3>4. Важная активность за последние 10 минут</h3>
+              <h3>Важная активность за последние 10 минут</h3>
               <p className="muted">
                 {dateText(answer.recentActivity.windowStart)} —{" "}
                 {dateText(answer.recentActivity.windowEnd)}
@@ -201,10 +201,19 @@ export function GrokAnalysis({
 
           {!!redFlags.length && (
             <>
-              <h3>Red flags</h3>
+              <h3
+                style={{
+                  color: "#ff707b",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                <span aria-hidden="true">🚩</span>Red flags
+              </h3>
               {redFlags.map((f, i) => (
                 <div key={i}>
-                  <p className="amber-text">{f.text}</p>
+                  <p style={{ color: "#ff707b" }}>{f.text}</p>
                   <div className="button-row">{f.sources.map(link)}</div>
                 </div>
               ))}
@@ -212,10 +221,39 @@ export function GrokAnalysis({
           )}
           {!!greenFlags.length && (
             <>
-              <h3>Green flags</h3>
+              <h3
+                style={{
+                  color: "#4ade80",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                <svg
+                  width="16"
+                  height="28"
+                  viewBox="0 0 16 28"
+                  aria-hidden="true"
+                >
+                  <rect
+                    x="2"
+                    y="1"
+                    width="12"
+                    height="24"
+                    rx="4"
+                    fill="#15251f"
+                    stroke="#4ade80"
+                  />
+                  <circle cx="8" cy="6" r="2.5" fill="#374151" />
+                  <circle cx="8" cy="13" r="2.5" fill="#374151" />
+                  <circle cx="8" cy="20" r="3" fill="#4ade80" />
+                  <path d="M8 25v3" stroke="#4ade80" strokeWidth="2" />
+                </svg>
+                Green flags
+              </h3>
               {greenFlags.map((f, i) => (
                 <div key={i}>
-                  <p>{f.text}</p>
+                  <p style={{ color: "#4ade80" }}>{f.text}</p>
                   <div className="button-row">{f.sources.map(link)}</div>
                 </div>
               ))}
