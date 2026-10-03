@@ -209,11 +209,31 @@ export function GrokAnalysis({
                   gap: 8,
                 }}
               >
-                <span aria-hidden="true">🚩</span>Red flags
+                <svg
+                  width="16"
+                  height="28"
+                  viewBox="0 0 16 28"
+                  aria-hidden="true"
+                >
+                  <rect
+                    x="2"
+                    y="1"
+                    width="12"
+                    height="24"
+                    rx="4"
+                    fill="#271a20"
+                    stroke="#ff707b"
+                  />
+                  <circle cx="8" cy="6" r="3" fill="#ff707b" />
+                  <circle cx="8" cy="13" r="2.5" fill="#374151" />
+                  <circle cx="8" cy="20" r="2.5" fill="#374151" />
+                  <path d="M8 25v3" stroke="#ff707b" strokeWidth="2" />
+                </svg>
+                Red flags
               </h3>
               {redFlags.map((f, i) => (
                 <div key={i}>
-                  <p style={{ color: "#ff707b" }}>{f.text}</p>
+                  <p>{f.text}</p>
                   <div className="button-row">{f.sources.map(link)}</div>
                 </div>
               ))}
@@ -253,7 +273,7 @@ export function GrokAnalysis({
               </h3>
               {greenFlags.map((f, i) => (
                 <div key={i}>
-                  <p style={{ color: "#4ade80" }}>{f.text}</p>
+                  <p>{f.text}</p>
                   <div className="button-row">{f.sources.map(link)}</div>
                 </div>
               ))}
