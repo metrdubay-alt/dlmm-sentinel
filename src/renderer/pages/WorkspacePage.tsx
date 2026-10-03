@@ -19,6 +19,7 @@ import { useUi } from "../stores/ui";
 import { Fragment, useState, useRef, type ReactNode } from "react";
 import { SniperIcon } from "./SniperIcon";
 import { FeesIcon } from "./FeesIcon";
+import { MetricIllustration } from "./MetricIllustration";
 import { PoolPanel } from "./PoolPanel";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, dateText } from "../lib/api";
@@ -694,6 +695,12 @@ function NumericSummary({
                     <tr>
                       <td>
                         {key === "snipersPct" && <SniperIcon />}
+                        {key === "marketCapUsd" && (
+                          <MetricIllustration kind="capitalization" />
+                        )}
+                        {key === "holderCount" && (
+                          <MetricIllustration kind="holders" />
+                        )}
                         {key === "totalFeesSolEquivalent" && <FeesIcon />}
                         {key === "totalFeesSolEquivalent" &&
                         m.value == null &&
