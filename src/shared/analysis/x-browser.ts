@@ -38,7 +38,11 @@ const rawSchema = z.object({
 export function allowedX(url: string) {
   try {
     const u = new URL(url);
-    return u.origin === "https://x.com" && !u.username && !u.password;
+    return (
+      ["https://x.com", "https://grok.com"].includes(u.origin) &&
+      !u.username &&
+      !u.password
+    );
   } catch {
     return false;
   }
