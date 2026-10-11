@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildGrokPrompt,
   grokResultSchema,
+  grokStatusSchema,
   parseGrokAnswer,
 } from "../../shared/analysis/grok";
 const target = {
@@ -104,6 +105,18 @@ it("keeps an optional X following-overlap snapshot on a Grok report", () => {
       followingOverlap: undefined,
     }).followingOverlap,
   ).toBeUndefined();
+});
+
+it("reports X-overlap progress separately from Grok's own phase", () => {
+  expect(
+    grokStatusSchema.parse({
+      target: null,
+      phase: "complete",
+      followingOverlap: "incomplete",
+      startedAt: null,
+      error: null,
+    }),
+  ).toMatchObject({ phase: "complete", followingOverlap: "incomplete" });
 });
 
 it("retains a matching report but moves flags with empty sources to unknowns", () => {

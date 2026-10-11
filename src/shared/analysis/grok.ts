@@ -125,6 +125,14 @@ export type GrokResult = z.infer<typeof grokResultSchema>;
 export const grokStatusSchema = z.object({
   target: gmgnTargetSchema.nullable(),
   phase: z.enum(["idle", "opening", "sending", "waiting", "complete", "error"]),
+  followingOverlap: z.enum([
+    "idle",
+    "checking",
+    "complete",
+    "unavailable",
+    "incomplete",
+    "error",
+  ]),
   startedAt: z.string().datetime().nullable(),
   error: z.string().nullable(),
 });

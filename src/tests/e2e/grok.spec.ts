@@ -34,8 +34,24 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
       }
       s.protocol.handle(
         "https",
-        () =>
-          new Response(
+        (request) => {
+          const pathname = new URL(request.url).pathname;
+          if (pathname === "/home")
+            return new Response(
+              '<main><button data-testid="SideNav_AccountSwitcher_Button">Plaskeev @plaskeev</button></main>',
+              { headers: { "content-type": "text/html; charset=utf-8" } },
+            );
+          if (pathname === "/plaskeev")
+            return new Response(
+              '<main data-testid="primaryColumn"><div data-testid="UserName">Plaskeev @plaskeev</div><a href="/plaskeev/following">210 Following</a></main>',
+              { headers: { "content-type": "text/html; charset=utf-8" } },
+            );
+          if (pathname === "/example/followers")
+            return new Response(
+              '<main data-testid="primaryColumn"><div data-testid="UserName">Example @example</div><div data-testid="UserCell"><a href="/alice">Alice</a><button>Following</button></div><div data-testid="UserCell"><a href="/bob">Bob</a><button>Following</button></div><p>No more results</p></main>',
+              { headers: { "content-type": "text/html; charset=utf-8" } },
+            );
+          return new Response(
             mode === "limit"
               ? '<main><div role="alert">You have reached your usage limit. Try again later.</div></main>'
               : `<main><textarea disabled readonly placeholder="Ask Grok (AI agent)"></textarea><button aria-label="Спросить" disabled><svg><path d="M12 3.59l7.457 7.45-1.414 1.42L13 7.41V21h-2V7.41l-5.043 5.05-1.414-1.42L12 3.59z"></path></svg></button><div id="chat"></div><script>
@@ -50,7 +66,8 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
   const block=document.createElement('div');const content=document.createElement('pre');content.textContent=JSON.stringify(answer);content.innerHTML=content.innerHTML.replace('независимый интерес','независимый <span style="display:block">интерес</span>');block.append(content);const actions=document.createElement('div');actions.innerHTML='<button aria-label="Copy text">Copy</button><button aria-label="Regenerate">Regenerate</button>';block.append(actions);document.querySelector('#chat').append(block);
   });</script></main>`,
             { headers: { "content-type": "text/html; charset=utf-8" } },
-          ),
+          );
+        },
       );
     }, mode);
   try {
@@ -97,6 +114,11 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
       target,
     );
     expect(report.grok?.answer.score).toBe(62);
+    expect(report.grok?.followingOverlap).toMatchObject({
+      state: "complete",
+      followingTotal: 210,
+      matchedFollowing: 2,
+    });
     expect(report.grok?.answer.unknowns.join(" ")).toContain(
       "ДЕМО: профиль не подтвержден",
     );
@@ -125,6 +147,11 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
     await expect(
       page.getByText("62 / 100 · Grok", { exact: true }),
     ).toBeVisible();
+    const overlapBadge = page.getByLabel("Подписки из вашей ленты", {
+      exact: true,
+    });
+    await expect(overlapBadge).toContainText("2 / 210");
+    await expect(overlapBadge).toContainText("@example");
     await expect(
       page.getByText("ДЕМО: повторяющиеся промо-посты", { exact: true }),
     ).toBeVisible();
