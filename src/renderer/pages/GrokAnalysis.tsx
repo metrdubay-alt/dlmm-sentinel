@@ -56,6 +56,8 @@ export function GrokAnalysis({
         ? r.grok
         : null,
     answer = result?.answer;
+  const overlap = result?.followingOverlap;
+  const overlapChecking = same && job?.followingOverlap === "checking";
   const redFlags =
     answer?.redFlags.filter((f) => !isTransferFeeFlag(f.text)) ?? [];
   const greenFlags =
@@ -71,28 +73,55 @@ export function GrokAnalysis({
   );
   return (
     <div className="grok-analysis">
-      <div className="button-row">
-        <button
-          className="primary"
-          disabled={
-            settings.data?.demoMode !== false ||
-            pipelineBusy ||
-            busy ||
-            run.isPending
-          }
-          onClick={() => run.mutate()}
-        >
-          {busy && same
-            ? "Grok анализирует…"
-            : result
-              ? "Обновить анализ Grok"
-              : "Анализировать Twitter"}
-        </button>
-        {busy && (
-          <button disabled={cancel.isPending} onClick={() => cancel.mutate()}>
-            Остановить Grok
+      <div className="grok-toolbar">
+        <div className="button-row">
+          <button
+            className="primary"
+            disabled={
+              settings.data?.demoMode !== false ||
+              pipelineBusy ||
+              busy ||
+              run.isPending
+            }
+            onClick={() => run.mutate()}
+          >
+            {busy && same
+              ? "Grok анализирует…"
+              : result
+                ? "Обновить анализ Grok"
+                : "Анализировать Twitter"}
           </button>
-        )}
+          {busy && (
+            <button disabled={cancel.isPending} onClick={() => cancel.mutate()}>
+              Остановить Grok
+            </button>
+          )}
+        </div>
+        <div className="following-overlap" aria-label="Подписки из вашей ленты">
+          {overlapChecking ? (
+            <>
+              <span>Среди твоих</span>
+              <strong>Проверяю X…</strong>
+            </>
+          ) : overlap?.state === "complete" ? (
+            <>
+              <span>Среди твоих</span>
+              <strong>
+                {overlap.matchedFollowing} / {overlap.followingTotal}
+              </strong>
+              <span>подписаны на @{overlap.targetHandle}</span>
+              <small>{dateText(overlap.observedAt)}</small>
+            </>
+          ) : (
+            <>
+              <span>Среди твоих</span>
+              <strong>Нет данных</strong>
+              <small>
+                {overlap?.message ?? "Проверка появится после анализа Grok."}
+              </small>
+            </>
+          )}
+        </div>
       </div>
       {busy && (
         <p role="status">

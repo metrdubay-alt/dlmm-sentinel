@@ -646,6 +646,48 @@ legend {
   flex-wrap: wrap;
   gap: 10px;
 }
+
+.grok-toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.following-overlap {
+  display: grid;
+  gap: 2px;
+  min-width: 154px;
+  max-width: 260px;
+  padding: 9px 11px;
+  border: 1px solid #43536e;
+  border-radius: 8px;
+  background: #111b2a;
+  color: #dce8f8;
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.following-overlap strong {
+  color: #fff;
+  font-size: 18px;
+}
+
+.following-overlap small {
+  color: #9caec5;
+  font-size: 11px;
+}
+
+@media (max-width: 650px) {
+  .grok-toolbar {
+    flex-direction: column;
+  }
+
+  .following-overlap {
+    max-width: none;
+    width: 100%;
+  }
+}
 .mint-line {
   display: flex;
   align-items: center;
