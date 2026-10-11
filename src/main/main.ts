@@ -29,6 +29,7 @@ import { MoniStore } from "./services/moni-store";
 import { SerialQueue } from "./services/serial-queue";
 import { GmgnBrowser } from "./services/gmgn-browser";
 import { GmgnStore } from "./services/gmgn-store";
+import type { XFollowingOverlap } from "../shared/analysis/x-following-overlap";
 const dev = !app.isPackaged && process.env.SENTINEL_DEV === "1";
 if (process.env.SENTINEL_DATA_DIR)
   app.setPath("userData", path.resolve(process.env.SENTINEL_DATA_DIR));
@@ -163,15 +164,45 @@ async function start() {
                 throw new Error("Grok отключён в демо-режиме.");
               const target = commands.grokRun.input.parse(parsed),
                 current = await workspaceStore.report(target);
+              const collect = async (handle: string): Promise<XFollowingOverlap> => {
+                try {
+                  return await xBrowser.collectFollowingOverlap(handle, window!);
+                } catch {
+                  return {
+                    state: "error",
+                    observedAt: new Date().toISOString(),
+                    message: "Не удалось прочитать X для проверки подписок.",
+                  };
+                }
+              };
+              let overlapRun: Promise<XFollowingOverlap> | undefined;
+              if (current.config.handle) {
+                grokBrowser.setFollowingOverlap("checking");
+                overlapRun = collect(current.config.handle);
+              }
               const result = await grokBrowser.run(
                 current.config,
                 window,
                 await gmgnBrowser.socialLinks(target),
               );
+              const discoveredHandle =
+                result.handle ?? result.answer.discoveredProfile?.handle;
+              if (!overlapRun && discoveredHandle) {
+                grokBrowser.setFollowingOverlap("checking");
+                overlapRun = collect(discoveredHandle);
+              }
+              let followingOverlap: XFollowingOverlap | undefined;
+              if (overlapRun) {
+                followingOverlap = await overlapRun;
+                grokBrowser.setFollowingOverlap(followingOverlap.state);
+              }
               data = await moniQueue.run(async () => {
                 if ((await service.settings()).demoMode)
                   throw new Error("Grok остановлен: включён демо-режим.");
-                return workspaceStore.saveGrok(result);
+                return workspaceStore.saveGrok({
+                  ...result,
+                  ...(followingOverlap ? { followingOverlap } : {}),
+                });
               });
               break;
             }

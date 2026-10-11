@@ -3,6 +3,10 @@ import { loadSourcePage } from "./source-navigation";
 import { BrowserWindow, session } from "electron";
 import { allowedX, parseXProfile } from "../../shared/analysis/x-browser";
 import { moniHandleSchema } from "../../shared/analysis/moni";
+import {
+  parseXFollowingOverlapPayload,
+  type XFollowingOverlap,
+} from "../../shared/analysis/x-following-overlap";
 export const X_READ_SCRIPT = `(() => {
  const root=document.querySelector('[data-testid="primaryColumn"]')||document.querySelector('main');
  if(!root)throw new Error('X ещё не загрузился.');
@@ -23,6 +27,59 @@ export const X_READ_SCRIPT = `(() => {
  return {url:location.href,identity,bio:text(root.querySelector('[data-testid="UserDescription"]')),website:text(header?.querySelector('a[href^="https://t.co/"]')),
  joined:text(header?.querySelector('[data-testid="UserJoinDate"]')),followers:count('/verified_followers')||count('/followers'),following:count('/following'),posts,unavailableText:unavailable};
 })()`;
+
+const X_VIEWER_SCRIPT = `(() => {
+ const root=document.querySelector('[data-testid="primaryColumn"]')||document.querySelector('main')||document.body;
+ const text=(e)=>(e?.innerText||'').trim();
+ const body=text(root);
+ const signedOut=/\\b(Log in|Sign in|Войти|Зарегистрироваться)\\b/i.test(body);
+ const account=text(document.querySelector('[data-testid="SideNav_AccountSwitcher_Button"]'));
+ const handle=/(?:^|\\s)@([a-z0-9_]{1,15})(?:\\s|$)/i.exec(account)?.[1]||'';
+ return {signedOut,handle};
+})()`;
+
+const X_OVERLAP_SCRIPT = `(() => new Promise(resolve => {
+ const root=document.querySelector('[data-testid="primaryColumn"]')||document.querySelector('main')||document.body;
+ const text=(e)=>(e?.innerText||'').trim();
+ const body=()=>text(root);
+ const signedOut=/\\b(Log in|Sign in|Войти|Зарегистрироваться)\\b/i.test(body());
+ const identity=text(root.querySelector('[data-testid="UserName"]'));
+ const matches=new Set();
+ const record=()=>{
+  for(const row of root.querySelectorAll('[data-testid="UserCell"]')){
+   const profile=[...row.querySelectorAll('a[href]')].map(a=>a.getAttribute('href')||'').find(h=>/^\\/[a-z0-9_]{1,15}$/i.test(h));
+   const following=[...row.querySelectorAll('button')].some(button=>/^(Following|Читаю)$/i.test(text(button)));
+   if(profile&&following)matches.add(profile.toLowerCase());
+  }
+ };
+ let iterations=0;
+ const step=()=>{
+  record();
+  const before=window.scrollY;
+  window.scrollTo(0,document.documentElement.scrollHeight);
+  iterations+=1;
+  if(iterations>=40||window.scrollY===before){
+   setTimeout(()=>{
+    record();
+    const finalBody=body();
+    const complete=/\\b(No more results|You've reached the end|Больше нет результатов|Вы дошли до конца)\\b/i.test(finalBody);
+    resolve({url:location.href,identity,signedOut,matchedFollowing:matches.size,complete});
+   },350);
+   return;
+  }
+  setTimeout(step,350);
+ };
+ step();
+}))()`;
+
+type XViewer = { signedOut: boolean; handle: string };
+type XOverlapPage = {
+  url: string;
+  identity: string;
+  signedOut: boolean;
+  matchedFollowing: number;
+  complete: boolean;
+};
 export class XBrowser {
   protected window: BrowserWindow | null = null;
   connection() {
@@ -111,6 +168,48 @@ export class XBrowser {
     if (win.isDestroyed() || win.webContents.getURL() !== before)
       throw new Error("Профиль изменился во время чтения.");
     return parseXProfile(raw, requested, new Date().toISOString());
+  }
+  async collectFollowingOverlap(
+    requested: string,
+    parent: BrowserWindow,
+  ): Promise<XFollowingOverlap> {
+    const target = moniHandleSchema.parse(requested);
+    await this.openUrl("https://x.com/home", parent, true);
+    const viewer: unknown = await this.window!.webContents.executeJavaScript(
+      X_VIEWER_SCRIPT,
+    );
+    const current = viewer as XViewer;
+    const observedAt = new Date().toISOString();
+    if (current.signedOut || !current.handle)
+      return parseXFollowingOverlapPayload(
+        {
+          url: `https://x.com/${target}/followers`,
+          identity: `@${target}`,
+          signedOut: true,
+          followingTotal: "",
+          matchedFollowing: 0,
+          complete: false,
+        },
+        target,
+        observedAt,
+      );
+    await this.openUrl(`https://x.com/${current.handle}`, parent, true);
+    const ownRaw: unknown = await this.window!.webContents.executeJavaScript(
+      X_READ_SCRIPT,
+    );
+    const own = ownRaw as { following?: string };
+    await this.openUrl(`https://x.com/${target}/followers`, parent, true);
+    const overlapRaw: unknown = await this.window!.webContents.executeJavaScript(
+      X_OVERLAP_SCRIPT,
+    );
+    const overlap = overlapRaw as XOverlapPage;
+    if (this.window?.isDestroyed())
+      throw new Error("Окно X было закрыто во время чтения.");
+    return parseXFollowingOverlapPayload(
+      { ...overlap, followingTotal: own.following ?? "" },
+      target,
+      observedAt,
+    );
   }
   close() {
     this.window?.destroy();

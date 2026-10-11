@@ -81,11 +81,15 @@ export class GrokBrowser extends XBrowser {
   private state: GrokStatus = {
     target: null,
     phase: "idle",
+    followingOverlap: "idle",
     startedAt: null,
     error: null,
   };
   status() {
     return { ...this.state };
+  }
+  setFollowingOverlap(state: GrokStatus["followingOverlap"]) {
+    this.state.followingOverlap = state;
   }
   override async openGrok(parent: BrowserWindow) {
     if (this.busy) throw new Error("Анализ Grok уже выполняется.");
@@ -127,6 +131,7 @@ export class GrokBrowser extends XBrowser {
     this.state = {
       target: context.target,
       phase: "opening",
+      followingOverlap: "idle",
       startedAt: context.startedAt,
       error: null,
     };
