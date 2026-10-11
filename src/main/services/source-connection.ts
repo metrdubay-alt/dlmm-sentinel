@@ -12,6 +12,7 @@ export function connectionScript(source: SourceId) {
  const visible=e=>!!e&&e.getClientRects().length>0&&getComputedStyle(e).visibility!=='hidden';
  const externalContent=e=>!!e.closest('article,pre,code,[data-testid="tweet"],[class*="message-bubble"],[class*="smartListItem"]');
  const nodes=s=>[...document.querySelectorAll(s)].filter(e=>visible(e)&&!externalContent(e));
+ const text=e=>(e?.innerText||'').trim();
  const label=e=>(e.getAttribute('aria-label')||e.innerText||'').trim();
  const controls=nodes('button,[role="button"],a');
  const signedOut=controls.some(e=>/^(sign in|log in|login|sign up \\/ log in|войти|вход|авторизация)$/i.test(label(e)))||nodes('input[autocomplete="current-password"]').length>0;
@@ -21,6 +22,7 @@ export function connectionScript(source: SourceId) {
  const gmgnAccount=source==='gmgn'&&nodes('[data-sentry-component="Connect"] button').some(e=>!!e.querySelector('[data-icon="IconWallet16pxRegular"]')&&!!e.querySelector('[data-icon*="bal"],[data-icon="IconRobinhoodeth16pxS"],[data-icon="IconBaseeth10016pxS"]'));
  const moniAccount=source==='moni'&&nodes('a[class*="sideNavigation_link"][aria-label="Profile"]').length>0&&nodes('a[class*="paymentStatus_statusLink"]').length>0;
  const notice=nodes('[role="alert"],[role="alertdialog"],[role="dialog"],[class*="quota"],[class*="Quota"],[class*="limit"],[class*="Limit"]').map(e=>(e.innerText||'').slice(0,1200)).join('\\n').slice(0,8000);
+ const grokQuotaText=source==='grok'?text(document.querySelector('main')||document.body).slice(0,20000):'';
  // This account usage tooltip exists in the DOM even while collapsed.
  const usageRows=source==='moni'?[...document.querySelectorAll('[class*="paymentStatus_usagePopover"] [class*="usageLimitsPopover_usageRow__"]')]:[];
  const percent=label=>{
@@ -32,7 +34,7 @@ export function connectionScript(source: SourceId) {
  };
  const usage=source==='moni'?{dailyUsedPercent:percent('Daily'),weeklyUsedPercent:percent('Weekly')}:null;
  const challenge=nodes('iframe[title]').some(e=>/captcha|challenge/i.test(e.title))||/verify.{0,30}human|подтвердите.{0,30}человек/i.test(notice);
- return {signedIn:explicitAccount||gmgnAccount||moniAccount||((source==='x'||source==='grok')&&xAccount),signedOut,notice,challenge,usage};
+ return {signedIn:explicitAccount||gmgnAccount||moniAccount||((source==='x'||source==='grok')&&xAccount),signedOut,notice,challenge,usage,grokQuotaText};
 })()`;
 }
 export async function readConnection(

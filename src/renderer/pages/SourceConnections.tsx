@@ -74,6 +74,23 @@ export function SourceConnections({ demo }: { demo: boolean }) {
                       : `${c.usage.weeklyUsedPercent}%`}
                   </small>
                 )}
+              {source === "grok" && c?.grokQuota && (
+                <div className="connection-quota" aria-label="Остаток лимита Grok">
+                  <div className="connection-quota-row">
+                    <span>Осталось</span>
+                    <strong>{c.grokQuota.remaining} / {c.grokQuota.total}</strong>
+                  </div>
+                  <div className="connection-quota-track" aria-hidden="true">
+                    <span style={{ width: `${(c.grokQuota.remaining / c.grokQuota.total) * 100}%` }} />
+                  </div>
+                  {c.grokQuota.reset && <small>{c.grokQuota.reset}</small>}
+                </div>
+              )}
+              {source === "grok" && c && !c.grokQuota && !c.limit && (
+                <small className="connection-usage">
+                  X не показывает остаток лимита
+                </small>
+              )}
               {c?.limit && (
                 <small role="alert" className="connection-warning">
                   ⚠ {c.limit}
