@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildGrokPrompt, parseGrokAnswer } from "../../shared/analysis/grok";
+import {
+  buildGrokPrompt,
+  grokResultSchema,
+  parseGrokAnswer,
+} from "../../shared/analysis/grok";
 const target = {
   chain: "bsc" as const,
   address: "0xcafdbce93477261db8250e42bdae6e66733f9e20",
@@ -69,6 +73,37 @@ describe("Grok response identity and attribution", () => {
       ).score,
     ).toBeNull();
   });
+});
+
+it("keeps an optional X following-overlap snapshot on a Grok report", () => {
+  const report = grokResultSchema.parse({
+    target,
+    handle: context.handle,
+    requestId: context.requestId,
+    observedAt: "2026-10-11T20:00:00.000Z",
+    sourceUrl: "https://x.com/i/grok",
+    answer,
+    rawText: JSON.stringify(answer),
+    attribution: "grok-browser",
+    followingOverlap: {
+      state: "complete",
+      targetHandle: "gstockbsc",
+      sourceUrl: "https://x.com/gstockbsc/followers",
+      observedAt: "2026-10-11T20:00:00.000Z",
+      followingTotal: 210,
+      matchedFollowing: 13,
+    },
+  });
+  expect(report.followingOverlap).toMatchObject({
+    state: "complete",
+    matchedFollowing: 13,
+  });
+  expect(
+    grokResultSchema.parse({
+      ...report,
+      followingOverlap: undefined,
+    }).followingOverlap,
+  ).toBeUndefined();
 });
 
 it("retains a matching report but moves flags with empty sources to unknowns", () => {

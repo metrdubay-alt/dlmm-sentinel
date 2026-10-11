@@ -2,6 +2,7 @@ import { moniHandleSchema } from "./moni";
 import { relatedAccountSchema } from "./related-account";
 import { z } from "zod";
 import { gmgnTargetSchema, type GmgnTarget } from "./gmgn";
+import { xFollowingOverlapSchema } from "./x-following-overlap";
 const sourceUrl = z
   .string()
   .url()
@@ -118,6 +119,7 @@ export const grokResultSchema = z.object({
   answer: grokAnswerSchema,
   rawText: z.string().max(80000),
   attribution: z.literal("grok-browser"),
+  followingOverlap: xFollowingOverlapSchema.optional(),
 });
 export type GrokResult = z.infer<typeof grokResultSchema>;
 export const grokStatusSchema = z.object({
