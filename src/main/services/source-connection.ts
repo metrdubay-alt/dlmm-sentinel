@@ -1,4 +1,5 @@
 import type { BrowserWindow } from "electron";
+import { loadSourcePage } from "./source-navigation";
 import {
   connectionFromEvidence,
   unknownConnection,
@@ -42,10 +43,24 @@ export async function readConnection(
   source: SourceId,
 ) {
   if (!win || win.isDestroyed()) return unknownConnection();
-  const url = win.webContents.getURL();
+  let url = win.webContents.getURL();
+  const isGrokEntry = (() => {
+    try {
+      const current = new URL(url);
+      return current.origin === "https://x.com" && current.pathname.replace(/\/$/, "") === "/i/grok";
+    } catch {
+      return false;
+    }
+  })();
+  if (source === "grok" && isGrokEntry) {
+    await loadSourcePage(win, "https://grok.com/settings/usage");
+    url = win.webContents.getURL();
+  }
   const allowed =
-    source === "x" || source === "grok"
+    source === "x"
       ? ["https://x.com"]
+      : source === "grok"
+        ? ["https://x.com", "https://grok.com"]
       : source === "gmgn"
         ? ["https://gmgn.ai"]
         : ["https://app.moni.ai", "https://profile.moni.ai"];

@@ -6,9 +6,17 @@ export const moniUsageSchema = z.object({
   weeklyUsedPercent: z.number().min(0).max(100).nullable(),
 });
 export const grokQuotaSchema = z.object({
-  remaining: z.number().int().nonnegative(),
-  total: z.number().int().positive(),
+  remaining: z.number().int().nonnegative().nullable(),
+  total: z.number().int().positive().nullable(),
+  usedPercent: z.number().min(0).max(100).nullable(),
   reset: z.string().trim().min(1).max(160).nullable(),
+}).superRefine((quota, context) => {
+  if ((quota.remaining === null) !== (quota.total === null)) {
+    context.addIssue({ code: "custom", message: "Count quota must have both values." });
+  }
+  if (quota.remaining === null && quota.usedPercent === null) {
+    context.addIssue({ code: "custom", message: "Quota needs a count or percentage." });
+  }
 });
 export const connectionSchema = z.object({
   auth: z.enum(["signed-in", "signed-out", "unknown"]),
@@ -43,11 +51,17 @@ export type ConnectionEvidence = {
 };
 export function parseGrokQuota(text: string) {
   const match = /(\d+)\s*(?:of|\/)\s*(\d+)\s*(?:messages?|requests?|queries)\s*(?:left|remaining)/i.exec(text);
-  if (!match) return null;
-  const remaining = Number(match[1]), total = Number(match[2]);
-  if (!Number.isSafeInteger(remaining) || !Number.isSafeInteger(total) || remaining < 0 || total <= 0 || remaining > total) return null;
   const reset = /(resets?[^\n·]{0,120})/i.exec(text)?.[1]?.trim() ?? null;
-  return grokQuotaSchema.parse({ remaining, total, reset });
+  if (match) {
+    const remaining = Number(match[1]), total = Number(match[2]);
+    if (!Number.isSafeInteger(remaining) || !Number.isSafeInteger(total) || remaining < 0 || total <= 0 || remaining > total) return null;
+    return grokQuotaSchema.parse({ remaining, total, usedPercent: null, reset });
+  }
+  const percentage = /(?:usage|used|limit|quota)[^\n·%]{0,80}?(\d{1,3}(?:\.\d+)?)\s*%/i.exec(text);
+  if (!percentage) return null;
+  const usedPercent = Number(percentage[1]);
+  if (!Number.isFinite(usedPercent) || usedPercent < 0 || usedPercent > 100) return null;
+  return grokQuotaSchema.parse({ remaining: null, total: null, usedPercent, reset });
 }
 export function connectionFromEvidence(e: ConnectionEvidence): Connection {
   const limited =

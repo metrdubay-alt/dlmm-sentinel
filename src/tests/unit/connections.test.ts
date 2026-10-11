@@ -56,7 +56,17 @@ it("reads an exact Grok quota and leaves an unparseable phrase unknown", () => {
   expect(parseGrokQuota("12 of 20 messages remaining · resets in 45 minutes")).toEqual({
     remaining: 12,
     total: 20,
+    usedPercent: null,
     reset: "resets in 45 minutes",
   });
   expect(parseGrokQuota("Grok access is limited")).toBeNull();
+});
+
+it("reads a percentage-only Grok Usage indicator without inventing a count", () => {
+  expect(parseGrokQuota("Usage this week: 42% · resets Monday")).toEqual({
+    remaining: null,
+    total: null,
+    usedPercent: 42,
+    reset: "resets Monday",
+  });
 });

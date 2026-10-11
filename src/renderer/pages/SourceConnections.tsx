@@ -75,13 +75,23 @@ export function SourceConnections({ demo }: { demo: boolean }) {
                   </small>
                 )}
               {source === "grok" && c?.grokQuota && (
-                <div className="connection-quota" aria-label="Остаток лимита Grok">
+                <div className="connection-quota" aria-label="Использование лимита Grok">
                   <div className="connection-quota-row">
-                    <span>Осталось</span>
-                    <strong>{c.grokQuota.remaining} / {c.grokQuota.total}</strong>
+                    <span>{c.grokQuota.remaining === null ? "Использовано" : "Осталось"}</span>
+                    <strong>
+                      {c.grokQuota.remaining === null
+                        ? `${c.grokQuota.usedPercent}%`
+                        : `${c.grokQuota.remaining} / ${c.grokQuota.total}`}
+                    </strong>
                   </div>
                   <div className="connection-quota-track" aria-hidden="true">
-                    <span style={{ width: `${(c.grokQuota.remaining / c.grokQuota.total) * 100}%` }} />
+                    <span
+                      style={{
+                        width: `${c.grokQuota.remaining === null
+                          ? 100 - (c.grokQuota.usedPercent ?? 0)
+                          : (c.grokQuota.remaining / (c.grokQuota.total ?? 1)) * 100}%`,
+                      }}
+                    />
                   </div>
                   {c.grokQuota.reset && <small>{c.grokQuota.reset}</small>}
                 </div>

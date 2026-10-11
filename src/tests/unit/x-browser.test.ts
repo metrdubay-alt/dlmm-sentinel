@@ -1,5 +1,6 @@
 import { expect, it } from "vitest";
 import {
+  allowedX,
   parseXProfile,
   compareXProfiles,
 } from "../../shared/analysis/x-browser";
@@ -22,6 +23,10 @@ const raw = {
   ],
   unavailableText: "",
 };
+it("allows the official Grok Usage screen but not lookalike domains", () => {
+  expect(allowedX("https://grok.com/settings/usage")).toBe(true);
+  expect(allowedX("https://grok.com.evil.test/settings/usage")).toBe(false);
+});
 it("captures a candidate profile and distinguishes incomplete visible activity", () => {
   const s = parseXProfile(raw, "gstockbsc", at);
   expect(s.followers).toBe(4013);
