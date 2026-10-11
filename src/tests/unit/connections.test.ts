@@ -1,5 +1,8 @@
 import { it, expect } from "vitest";
-import { connectionFromEvidence } from "../../shared/analysis/connections";
+import {
+  connectionFromEvidence,
+  parseGrokQuota,
+} from "../../shared/analysis/connections";
 const e = { signedIn: false, signedOut: false, notice: "", challenge: false };
 it("does not equate an open page with authentication", () =>
   expect(connectionFromEvidence(e).auth).toBe("unknown"));
@@ -47,4 +50,13 @@ it("does not mistake 10 remaining searches for zero remaining searches", () => {
   expect(
     connectionFromEvidence({ ...e, notice: "10 searches remaining" }).limit,
   ).toBeNull();
+});
+
+it("reads an exact Grok quota and leaves an unparseable phrase unknown", () => {
+  expect(parseGrokQuota("12 of 20 messages remaining · resets in 45 minutes")).toEqual({
+    remaining: 12,
+    total: 20,
+    reset: "resets in 45 minutes",
+  });
+  expect(parseGrokQuota("Grok access is limited")).toBeNull();
 });

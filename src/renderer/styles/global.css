@@ -1177,6 +1177,7 @@ button.source-open:hover {
 .connections-panel{margin-bottom:20px;padding:16px 20px;border:1px solid #293747;border-radius:12px;background:#101925}
 .connections-title{display:flex;align-items:center;gap:18px;margin-bottom:12px}.connections-title span,.connections-note{color:#8ca0b7;font-size:12px}
 .connections-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.connection-button{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;background:#202934;border-color:#465362;color:#b3becb;min-height:46px}.connection-button span{font-size:11px}.connection-warning{display:block;color:#ffb66b;margin-top:7px;line-height:1.5}.connections-note{display:block;margin-top:12px;line-height:1.5}
+.connection-quota{display:grid;gap:5px;margin-top:7px;color:#aebed1;font-size:11px}.connection-quota-row{display:flex;justify-content:space-between;gap:8px}.connection-quota-row strong{color:#e7f1ff}.connection-quota-track{height:5px;border-radius:99px;background:#2b394c;overflow:hidden}.connection-quota-track span{display:block;height:100%;min-width:2px;background:#6ca9ff;border-radius:inherit}.connection-quota small{color:#8295ac}
 
 .transfer-fee-warning {
   margin: 18px 0;
