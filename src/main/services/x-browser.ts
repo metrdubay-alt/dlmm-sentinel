@@ -28,15 +28,22 @@ export const X_READ_SCRIPT = `(() => {
  joined:text(header?.querySelector('[data-testid="UserJoinDate"]')),followers:count('/verified_followers')||count('/followers'),following:count('/following'),posts,unavailableText:unavailable};
 })()`;
 
-const X_VIEWER_SCRIPT = `(() => {
- const root=document.querySelector('[data-testid="primaryColumn"]')||document.querySelector('main')||document.body;
- const text=(e)=>(e?.innerText||'').trim();
- const body=text(root);
- const account=text(document.querySelector('[data-testid="SideNav_AccountSwitcher_Button"]'));
- const handle=/(?:^|\\s)@([a-z0-9_]{1,15})(?:\\s|$)/i.exec(account)?.[1]||'';
- const signedOut=!handle&&/\\b(Log in|Sign in|Войти|Зарегистрироваться)\\b/i.test(body);
- return {signedOut,handle};
-})()`;
+const X_VIEWER_SCRIPT = `(() => new Promise(resolve => {
+ const visible=e=>!!e&&e.getClientRects().length>0&&getComputedStyle(e).visibility!=='hidden';
+ const read=()=>{
+  const account=(document.querySelector('[data-testid="SideNav_AccountSwitcher_Button"]')?.innerText||'').trim();
+  const handle=/(?:^|\\s)@([a-z0-9_]{1,15})(?:\\s|$)/i.exec(account)?.[1]||'';
+  const signedOut=[...document.querySelectorAll('a[href^="/i/flow/login"],input[autocomplete="username"]')].some(visible);
+  return {signedOut,handle};
+ };
+ const deadline=Date.now()+5000;
+ const poll=()=>{
+  const state=read();
+  if(state.handle||state.signedOut||Date.now()>=deadline)return resolve(state);
+  setTimeout(poll,100);
+ };
+ poll();
+}))()`;
 
 const X_OVERLAP_SCRIPT = `(() => new Promise(resolve => {
  const root=document.querySelector('[data-testid="primaryColumn"]')||document.querySelector('main')||document.body;
