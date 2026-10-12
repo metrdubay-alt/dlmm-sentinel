@@ -32,9 +32,9 @@ const X_VIEWER_SCRIPT = `(() => {
  const root=document.querySelector('[data-testid="primaryColumn"]')||document.querySelector('main')||document.body;
  const text=(e)=>(e?.innerText||'').trim();
  const body=text(root);
- const signedOut=/\\b(Log in|Sign in|Войти|Зарегистрироваться)\\b/i.test(body);
  const account=text(document.querySelector('[data-testid="SideNav_AccountSwitcher_Button"]'));
  const handle=/(?:^|\\s)@([a-z0-9_]{1,15})(?:\\s|$)/i.exec(account)?.[1]||'';
+ const signedOut=!handle&&/\\b(Log in|Sign in|Войти|Зарегистрироваться)\\b/i.test(body);
  return {signedOut,handle};
 })()`;
 

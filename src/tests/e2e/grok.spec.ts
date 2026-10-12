@@ -38,7 +38,7 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
           const pathname = new URL(request.url).pathname;
           if (pathname === "/home")
             return new Response(
-              '<main><button data-testid="SideNav_AccountSwitcher_Button">Plaskeev @plaskeev</button></main>',
+              '<main><p>Log in to see more public posts</p><button data-testid="SideNav_AccountSwitcher_Button">Plaskeev @plaskeev</button></main>',
               { headers: { "content-type": "text/html; charset=utf-8" } },
             );
           if (pathname === "/plaskeev")
