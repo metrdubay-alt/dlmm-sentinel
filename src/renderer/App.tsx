@@ -16,6 +16,7 @@ import { useUi } from "./stores/ui";
 import { ReportPage } from "./pages/ReportPage";
 import { verdictLabels } from "../shared/schemas/domain";
 import { scenarioLabels } from "../shared/providers/mock/fixtures";
+import { APP_VERSION } from "./app-version";
 import icon from "../../assets/icon-source.svg";
 export function App() {
   const { page, setPage, setReport, setWorkspace } = useUi();
@@ -89,7 +90,7 @@ export function App() {
           </div>
           <p>Данные хранятся на этом устройстве</p>
           <div className="version">
-            v0.3.58 <span>Источники</span>
+            v{APP_VERSION} <span>Источники</span>
           </div>
         </div>
       </aside>
