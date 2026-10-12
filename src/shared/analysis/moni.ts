@@ -110,7 +110,14 @@ export function parseMoniCard(
       "not-found",
       `GetMoni: профиль @${handle} не найден.`,
     );
-  const profile = new URL(card.profileHref);
+  let profile: URL;
+  try {
+    profile = new URL(card.profileHref);
+  } catch {
+    throw new Error(
+      "GetMoni не отдал ссылку на профиль X. Завершите вход и дождитесь загрузки карточки.",
+    );
+  }
   if (
     !allowedMoniNavigation(card.url) ||
     url.hostname !== "app.moni.ai" ||

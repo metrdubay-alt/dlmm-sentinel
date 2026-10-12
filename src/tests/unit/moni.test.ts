@@ -59,6 +59,11 @@ describe("Moni visible card", () => {
       read({ profileHref: "https://evil.test/ArtificiallyInu" }),
     ).toThrow();
   });
+  it("explains a missing X profile link instead of leaking an Invalid URL error", () => {
+    expect(() => read({ profileHref: "" })).toThrow(
+      "GetMoni не отдал ссылку на профиль X.",
+    );
+  });
   it.each(["2.18K", "2180.5", "", "2180 points", "-1", "9007199254740992"])(
     "rejects inexact score %s",
     (scoreText) => {

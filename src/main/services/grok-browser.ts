@@ -70,11 +70,11 @@ export class GrokBrowser extends XBrowser {
     return readConnection(this.window, "grok");
   }
   override async openAccount(parent: BrowserWindow) {
-    if (this.window && !this.window.isDestroyed()) {
+    if (this.busy && this.window && !this.window.isDestroyed()) {
       this.window.show();
       return true;
     }
-    return this.openGrok(parent);
+    return this.openUrl("https://grok.com/settings/usage", parent, false);
   }
   private busy = false;
   private cancelled = false;

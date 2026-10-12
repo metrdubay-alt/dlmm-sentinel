@@ -113,7 +113,7 @@ export class XBrowser {
   async openGrok(parent: BrowserWindow, background = false) {
     return this.openUrl("https://x.com/i/grok", parent, background);
   }
-  private async openUrl(
+  protected async openUrl(
     url: string,
     parent: BrowserWindow,
     background: boolean,

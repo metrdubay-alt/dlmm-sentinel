@@ -1,5 +1,4 @@
 import type { BrowserWindow } from "electron";
-import { loadSourcePage } from "./source-navigation";
 import {
   connectionFromEvidence,
   unknownConnection,
@@ -43,19 +42,7 @@ export async function readConnection(
   source: SourceId,
 ) {
   if (!win || win.isDestroyed()) return unknownConnection();
-  let url = win.webContents.getURL();
-  const isGrokEntry = (() => {
-    try {
-      const current = new URL(url);
-      return current.origin === "https://x.com" && current.pathname.replace(/\/$/, "") === "/i/grok";
-    } catch {
-      return false;
-    }
-  })();
-  if (source === "grok" && isGrokEntry) {
-    await loadSourcePage(win, "https://grok.com/settings/usage");
-    url = win.webContents.getURL();
-  }
+  const url = win.webContents.getURL();
   const allowed =
     source === "x"
       ? ["https://x.com"]

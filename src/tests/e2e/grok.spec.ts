@@ -197,7 +197,7 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
     expect(
       await app.evaluate(({ BrowserWindow }) =>
         BrowserWindow.getAllWindows()
-          .find((w) => w.webContents.getURL().includes("/i/grok"))!
+          .find((w) => w.webContents.getURL().includes("/settings/usage"))!
           .isVisible(),
       ),
     ).toBe(true);
