@@ -2,7 +2,10 @@ import {
   isTransferFeeFlag,
   withoutTransferFeeRate,
 } from "../../shared/analysis/grok-social-display";
-import { followingOverlapHint } from "../lib/following-overlap-hint";
+import {
+  followingOverlapHint,
+  hasNoXAccount,
+} from "../lib/following-overlap-hint";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, dateText } from "../lib/api";
 import {
@@ -113,6 +116,8 @@ export function GrokAnalysis({
               <span>подписаны на @{overlap.targetHandle}</span>
               <small>{dateText(overlap.observedAt)}</small>
             </>
+          ) : hasNoXAccount(result) ? (
+            <strong>Акк в X отсутствует</strong>
           ) : (
             <>
               <span>Среди твоих</span>

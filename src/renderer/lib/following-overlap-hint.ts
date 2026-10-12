@@ -11,3 +11,12 @@ export function followingOverlapHint(result: OverlapResult | null) {
     return "Акк в X отсутствует";
   return "Проверка появится после анализа Grok.";
 }
+
+export function hasNoXAccount(result: OverlapResult | null) {
+  return !!(
+    result &&
+    !result.handle &&
+    !result.answer.discoveredProfile &&
+    !result.followingOverlap
+  );
+}
