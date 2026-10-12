@@ -73,7 +73,7 @@ const X_OVERLAP_SCRIPT = `(() => new Promise(resolve => {
     record();
     const finalBody=body();
     const complete=/\\b(No more results|You've reached the end|Больше нет результатов|Вы дошли до конца)\\b/i.test(finalBody);
-    resolve({url:location.href,identity,signedOut,matchedFollowing:matches.size,complete});
+    resolve({url:location.href,identity,title:document.title,signedOut,matchedFollowing:matches.size,complete});
    },350);
    return;
   }
@@ -86,6 +86,7 @@ type XViewer = { signedOut: boolean; handle: string };
 type XOverlapPage = {
   url: string;
   identity: string;
+  title: string;
   signedOut: boolean;
   matchedFollowing: number;
   complete: boolean;
@@ -195,6 +196,7 @@ export class XBrowser {
         {
           url: `https://x.com/${target}/followers`,
           identity: `@${target}`,
+          title: "",
           signedOut: true,
           followingTotal: "",
           matchedFollowing: 0,

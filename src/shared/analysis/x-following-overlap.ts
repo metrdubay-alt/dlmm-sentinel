@@ -45,6 +45,7 @@ const rawPayloadSchema = z
   .object({
     url: z.string().max(2048),
     identity: z.string().max(1000),
+    title: z.string().max(1000),
     signedOut: z.boolean(),
     followingTotal: z.string().max(200),
     matchedFollowing: z.number().int().nonnegative(),
@@ -80,7 +81,13 @@ export function parseXFollowingOverlapPayload(
     url.pathname.toLowerCase().replace(/\/$/, "") !== `/${target}/followers`
   )
     return { state: "error", observedAt, message: "Страница X изменилась во время чтения." };
-  if (!raw.identity.toLowerCase().includes(`@${target}`))
+  const expectedHandle = `@${target}`;
+  const identity = raw.identity.toLowerCase();
+  const title = raw.title.toLowerCase();
+  if (
+    !identity.includes(expectedHandle) &&
+    !(identity.trim() === "" && title.includes(expectedHandle))
+  )
     return { state: "unavailable", observedAt, message: "Профиль токена в X не подтверждён." };
   if (!raw.complete)
     return { state: "incomplete", observedAt, message: "X показал неполный список." };

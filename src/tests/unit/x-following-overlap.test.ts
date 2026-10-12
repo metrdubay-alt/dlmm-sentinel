@@ -17,6 +17,7 @@ const complete = {
 const completePayload = {
   url: "https://x.com/example/followers",
   identity: "Example\n@example",
+  title: "Example (@example) / X",
   signedOut: false,
   followingTotal: "210 Following",
   matchedFollowing: 13,
@@ -54,6 +55,7 @@ it("turns an incomplete DOM payload into an explicit non-numeric state", () => {
       {
         url: "https://x.com/example/followers",
         identity: "Example\n@example",
+        title: "Example (@example) / X",
         signedOut: false,
         followingTotal: "210 Following",
         matchedFollowing: 13,
@@ -80,6 +82,16 @@ it("parses a complete visible X sample only after its end is explicit", () => {
       at,
     ),
   ).toMatchObject({ state: "incomplete" });
+});
+
+it("accepts a matching X profile title when the followers page omits its header", () => {
+  expect(
+    parseXFollowingOverlapPayload(
+      { ...completePayload, identity: "", title: "Example (@example) / X" },
+      "example",
+      at,
+    ),
+  ).toMatchObject({ state: "complete", followingTotal: 210 });
 });
 
 it("does not count a signed-out page or a page for another profile", () => {
