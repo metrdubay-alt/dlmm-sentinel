@@ -32,7 +32,10 @@ const X_VIEWER_SCRIPT = `(() => new Promise(resolve => {
  const visible=e=>!!e&&e.getClientRects().length>0&&getComputedStyle(e).visibility!=='hidden';
  const read=()=>{
   const account=(document.querySelector('[data-testid="SideNav_AccountSwitcher_Button"]')?.innerText||'').trim();
-  const handle=/(?:^|\\s)@([a-z0-9_]{1,15})(?:\\s|$)/i.exec(account)?.[1]||'';
+  const accountHandle=/(?:^|\\s)@([a-z0-9_]{1,15})(?:\\s|$)/i.exec(account)?.[1]||'';
+  const profileHref=document.querySelector('a[data-testid="AppTabBar_Profile_Link"]')?.getAttribute('href')||'';
+  const profileHandle=/^\\/([a-z0-9_]{1,15})\\/?$/i.exec(profileHref)?.[1]||'';
+  const handle=accountHandle||profileHandle;
   const signedOut=[...document.querySelectorAll('a[href^="/i/flow/login"],input[autocomplete="username"]')].some(visible);
   return {signedOut,handle};
  };
