@@ -2,6 +2,7 @@ import {
   isTransferFeeFlag,
   withoutTransferFeeRate,
 } from "../../shared/analysis/grok-social-display";
+import { followingOverlapHint } from "../lib/following-overlap-hint";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, dateText } from "../lib/api";
 import {
@@ -116,9 +117,7 @@ export function GrokAnalysis({
             <>
               <span>Среди твоих</span>
               <strong>Нет данных</strong>
-              <small>
-                {overlap?.message ?? "Проверка появится после анализа Grok."}
-              </small>
+              <small>{followingOverlapHint(result)}</small>
             </>
           )}
         </div>
