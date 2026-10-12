@@ -1,4 +1,5 @@
 import { readConnection } from "./source-connection";
+import { unknownConnection } from "../../shared/analysis/connections";
 import { randomUUID } from "node:crypto";
 import type { BrowserWindow } from "electron";
 import { XBrowser } from "./x-browser";
@@ -66,8 +67,12 @@ type State = {
   blocked: string;
 };
 export class GrokBrowser extends XBrowser {
-  override connection() {
-    return readConnection(this.window, "grok");
+  private lastConnection: Awaited<ReturnType<typeof readConnection>> | null =
+    null;
+  // Reading the quota navigates the window to grok.com; never do it under a running analysis.
+  override async connection() {
+    if (this.busy) return this.lastConnection ?? unknownConnection();
+    return (this.lastConnection = await readConnection(this.window, "grok"));
   }
   override async openAccount(parent: BrowserWindow) {
     if (this.window && !this.window.isDestroyed()) {
