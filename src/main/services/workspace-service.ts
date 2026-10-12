@@ -52,7 +52,9 @@ export class WorkspaceService {
         errors[source] = source.startsWith("moni")
           ? error instanceof MoniReadError
             ? error.message
-            : "Getmoni не вернул счёт: не удалось прочитать загруженный профиль. Повторите обновление."
+            : error instanceof Error && error.message
+              ? `Getmoni не вернул счёт: ${error.message}`
+              : "Getmoni не вернул счёт: не удалось прочитать загруженный профиль. Повторите обновление."
           : `Не удалось прочитать ${source}. Откройте источник и повторите чтение.`;
       }
     };

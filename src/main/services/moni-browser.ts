@@ -18,7 +18,7 @@ export const MONI_READ_SCRIPT = `(() => {
     url: location.href,
     notFound: [...document.querySelectorAll('[class*="accountPage_searchNotFoundContainer"] [class*="searchNotFound_title"]')].some(e=>e.getClientRects().length>0 && /^not found$/i.test(e.textContent.trim())),
     profileHref: one('[class*="accountHeaderBlock_links"] a[href^="https://x.com/"]')?.href || '',
-    scoreText: text('[class*="scoreBlock_scoreNumber"]'),
+    scoreText: text('[class*="scoreModule_scoreBlockMoni"] [class*="scoreBlock_scoreNumber"]') || text('[class*="scoreBlock_scoreNumber"]'),
     smartsText: text('[class*="smartsListHeader_smartFollowersCount"]'),
     smartHrefs: [...document.querySelectorAll('a[class*="smartListItem_link"]')].slice(0,1000).map(a => a.getAttribute('href') || '')
   };
