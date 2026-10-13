@@ -94,6 +94,26 @@ it("accepts a matching X profile title when the followers page omits its header"
   ).toMatchObject({ state: "complete", followingTotal: 210 });
 });
 
+it("accepts X's explicit statement that nobody you follow follows the token", () => {
+  expect(
+    parseXFollowingOverlapPayload(
+      {
+        ...completePayload,
+        url: "https://x.com/example",
+        matchedFollowing: 0,
+        complete: false,
+        noneFollowedByYou: true,
+      },
+      "example",
+      at,
+    ),
+  ).toMatchObject({
+    state: "complete",
+    followingTotal: 210,
+    matchedFollowing: 0,
+  });
+});
+
 it("does not count a signed-out page or a page for another profile", () => {
   expect(
     parseXFollowingOverlapPayload(

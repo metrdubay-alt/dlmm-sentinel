@@ -55,6 +55,7 @@ const X_OVERLAP_SCRIPT = `(() => new Promise(resolve => {
  const signedOut=/\\b(Log in|Sign in|Войти|Зарегистрироваться)\\b/i.test(body());
  const identity=text(root.querySelector('[data-testid="UserName"]'));
  const matches=new Set();
+ const nobodyYouFollow=/not followed by anyone you(?:'|’)re following|никто из тех, на кого вы подписаны, не подписан/i;
  const record=()=>{
   for(const row of root.querySelectorAll('[data-testid="UserCell"]')){
    const profile=[...row.querySelectorAll('a[href]')].map(a=>a.getAttribute('href')||'').find(h=>/^\\/[a-z0-9_]{1,15}$/i.test(h));
@@ -62,6 +63,10 @@ const X_OVERLAP_SCRIPT = `(() => new Promise(resolve => {
    if(profile&&following)matches.add(profile.toLowerCase());
   }
  };
+ if(nobodyYouFollow.test(body())){
+  resolve({url:location.href,identity,title:document.title,signedOut,matchedFollowing:0,complete:false,noneFollowedByYou:true});
+  return;
+ }
  let iterations=0;
  const step=()=>{
   record();
@@ -73,7 +78,8 @@ const X_OVERLAP_SCRIPT = `(() => new Promise(resolve => {
     record();
     const finalBody=body();
     const complete=/\\b(No more results|You've reached the end|Больше нет результатов|Вы дошли до конца)\\b/i.test(finalBody);
-    resolve({url:location.href,identity,title:document.title,signedOut,matchedFollowing:matches.size,complete});
+    const noneFollowedByYou=nobodyYouFollow.test(finalBody);
+    resolve({url:location.href,identity,title:document.title,signedOut,matchedFollowing:matches.size,complete,noneFollowedByYou});
    },350);
    return;
   }
@@ -90,6 +96,7 @@ type XOverlapPage = {
   signedOut: boolean;
   matchedFollowing: number;
   complete: boolean;
+  noneFollowedByYou?: boolean;
 };
 export class XBrowser {
   protected window: BrowserWindow | null = null;
@@ -210,10 +217,16 @@ export class XBrowser {
       X_READ_SCRIPT,
     );
     const own = ownRaw as { following?: string };
-    await this.openUrl(`https://x.com/${target}/followers`, parent, true);
-    const overlapRaw: unknown = await this.window!.webContents.executeJavaScript(
-      X_OVERLAP_SCRIPT,
-    );
+    let overlapRaw: unknown;
+    try {
+      await this.openUrl(`https://x.com/${target}/followers`, parent, true);
+      overlapRaw = await this.window!.webContents.executeJavaScript(X_OVERLAP_SCRIPT);
+    } catch {
+      // X sometimes blocks the followers route while the public profile still states
+      // that none of the signed-in user's follows follows this account.
+      await this.openUrl(`https://x.com/${target}`, parent, true);
+      overlapRaw = await this.window!.webContents.executeJavaScript(X_OVERLAP_SCRIPT);
+    }
     const overlap = overlapRaw as XOverlapPage;
     if (this.window?.isDestroyed())
       throw new Error("Окно X было закрыто во время чтения.");

@@ -50,6 +50,7 @@ const rawPayloadSchema = z
     followingTotal: z.string().max(200),
     matchedFollowing: z.number().int().nonnegative(),
     complete: z.boolean(),
+    noneFollowedByYou: z.boolean().optional().default(false),
   })
   .strict();
 
@@ -76,9 +77,12 @@ export function parseXFollowingOverlapPayload(
   } catch {
     return { state: "error", observedAt, message: "X вернул некорректную страницу." };
   }
+  const path = url.pathname.toLowerCase().replace(/\/$/, "");
+  const followersPath = `/${target}/followers`;
+  const profilePath = `/${target}`;
   if (
     url.origin !== "https://x.com" ||
-    url.pathname.toLowerCase().replace(/\/$/, "") !== `/${target}/followers`
+    (path !== followersPath && !(raw.noneFollowedByYou && path === profilePath))
   )
     return { state: "error", observedAt, message: "Страница X изменилась во время чтения." };
   const expectedHandle = `@${target}`;
@@ -89,7 +93,9 @@ export function parseXFollowingOverlapPayload(
     !(identity.trim() === "" && title.includes(expectedHandle))
   )
     return { state: "unavailable", observedAt, message: "Профиль токена в X не подтверждён." };
-  if (!raw.complete)
+  if (raw.noneFollowedByYou && raw.matchedFollowing !== 0)
+    return { state: "error", observedAt, message: "X вернул противоречивые данные о подписках." };
+  if (!raw.complete && !raw.noneFollowedByYou)
     return { state: "incomplete", observedAt, message: "X показал неполный список." };
   const followingTotal = parseCount(raw.followingTotal);
   if (followingTotal === null || raw.matchedFollowing > followingTotal)
