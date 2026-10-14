@@ -23,6 +23,8 @@ export const poolRowSchema = z.object({
   sum1hUsd: amount,
   efficiency5m: amount,
   efficiency1h: amount,
+  fabriqFees5mUsd: amount.optional(),
+  fabriqMatch: z.enum(["matched", "missing"]).optional(),
   issue: z.string().max(200),
 });
 export const poolSnapshotSchema = z.object({
