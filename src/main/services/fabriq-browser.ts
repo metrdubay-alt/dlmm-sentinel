@@ -46,7 +46,9 @@ export class FabriqBrowser {
     if (!this.window || this.window.isDestroyed()) {
       const isolated = session.fromPartition("persist:sentinel-fabriq");
       if (!this.initialized) {
-        isolated.setPermissionRequestHandler((_wc, _p, callback) => callback(false));
+        isolated.setPermissionRequestHandler((_wc, _p, callback) =>
+          callback(false),
+        );
         isolated.setPermissionCheckHandler(() => false);
         isolated.on("will-download", (event) => event.preventDefault());
         this.initialized = true;
@@ -76,7 +78,9 @@ export class FabriqBrowser {
       win.webContents.on("will-redirect", (event, url) => {
         if (!allowed(url)) event.preventDefault();
       });
-      win.webContents.on("will-attach-webview", (event) => event.preventDefault());
+      win.webContents.on("will-attach-webview", (event) =>
+        event.preventDefault(),
+      );
       win.on("closed", () => {
         if (this.window === win) this.window = null;
       });
@@ -94,10 +98,12 @@ export class FabriqBrowser {
 
   async capture(): Promise<FabriqFeeEvidence[]> {
     const win = this.window;
-    if (!win || win.isDestroyed() || !allowed(win.webContents.getURL())) return [];
+    if (!win || win.isDestroyed() || !allowed(win.webContents.getURL()))
+      return [];
     try {
       const url = win.webContents.getURL();
-      const raw: unknown = await win.webContents.executeJavaScript(FABRIQ_READ_SCRIPT);
+      const raw: unknown =
+        await win.webContents.executeJavaScript(FABRIQ_READ_SCRIPT);
       if (win.isDestroyed() || win.webContents.getURL() !== url) return [];
       return parseFabriqPoolFees(raw);
     } catch {

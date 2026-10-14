@@ -39,8 +39,7 @@ export function poolFeeTone(
       hint: "Красная зона: 5m Fees от $150 до $300.",
       quality: 0.25,
     };
-  if (value <= 450)
-    return neutral("Серая зона: 5m Fees от $300 до $450.");
+  if (value <= 450) return neutral("Серая зона: 5m Fees от $300 до $450.");
   return {
     kind: "good",
     strength: Math.min(1, (value - 450) / 450),

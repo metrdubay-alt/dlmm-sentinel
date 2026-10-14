@@ -19,17 +19,38 @@ export function convertFees(
   source: "CoinGecko" | "Coinbase" = "CoinGecko",
 ): GmgnSnapshot {
   const result = gmgnSnapshotSchema.parse(snapshot);
-  if (!result.nativeFees || result.nativeFees.asset === "SOL") return result;
+  if (!result.nativeFees) return result;
   delete result.feeConversion;
+  const parsed = rates.safeParse(raw),
+    now = Date.parse(fetchedAt) / 1000;
+  if (!parsed.success || !Number.isFinite(now)) return result;
+  const { solana } = parsed.data;
+  const amount = result.nativeFees.amount;
+  if (
+    now - solana.last_updated_at > 300 ||
+    solana.last_updated_at - now > 30 ||
+    amount.value === null
+  )
+    return result;
+  if (result.nativeFees.asset === "SOL") {
+    const usd = amount.value * solana.usd;
+    if (!Number.isFinite(usd)) return result;
+    result.feeConversion = {
+      source,
+      fetchedAt,
+      nativeUpdatedAt: new Date(solana.last_updated_at * 1000).toISOString(),
+      solUpdatedAt: new Date(solana.last_updated_at * 1000).toISOString(),
+      nativeUsd: solana.usd,
+      solUsd: solana.usd,
+      usd,
+    };
+    return gmgnSnapshotSchema.parse(result);
+  }
   result.metrics.totalFeesSolEquivalent = {
     display: "",
     value: null,
     precision: "missing",
   };
-  const parsed = rates.safeParse(raw),
-    now = Date.parse(fetchedAt) / 1000;
-  if (!parsed.success || !Number.isFinite(now)) return result;
-  const { solana } = parsed.data;
   const binancecoin =
     result.nativeFees.asset === "BNB"
       ? parsed.data.binancecoin
@@ -42,8 +63,6 @@ export function convertFees(
     Math.abs(solana.last_updated_at - binancecoin.last_updated_at) > 120
   )
     return result;
-  const amount = result.nativeFees.amount;
-  if (amount.value === null) return result;
   const usd = amount.value * binancecoin.usd,
     equivalent = usd / solana.usd;
   if (!Number.isFinite(usd) || !Number.isFinite(equivalent)) return result;

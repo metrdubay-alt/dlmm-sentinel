@@ -3,6 +3,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, dateText } from "../lib/api";
 import { rankPools, poolNetwork } from "../../shared/analysis/pool-snapshot";
 import type { GmgnTarget } from "../../shared/analysis/gmgn";
+import type { StrategyMode } from "../../shared/analysis/strategy";
+import { poolFeeTone } from "../../shared/analysis/pool-fees";
+import { metricToneStyle } from "../lib/metric-tone";
 const usd = (n: number | null) =>
   n == null
     ? "—"
@@ -19,10 +22,12 @@ export function PoolPanel({
   target,
   demo,
   pipelineBusy,
+  mode,
 }: {
   target: GmgnTarget;
   demo: boolean;
   pipelineBusy?: boolean;
+  mode?: StrategyMode;
 }) {
   const [window, setWindow] = useState<"5m" | "1h">("5m");
   const client = useQueryClient(),
@@ -34,6 +39,9 @@ export function PoolPanel({
   const refresh = useMutation({
     mutationFn: () => api.poolsRefresh(target),
     onSuccess: (v) => client.setQueryData(["pool-snapshot", v.target], v),
+  });
+  const openFabriq = useMutation({
+    mutationFn: () => api.fabriqOpen(undefined),
   });
   const snapshot =
     query.data?.target.chain === target.chain &&
@@ -56,6 +64,13 @@ export function PoolPanel({
     !snapshot?.rows.length || snapshot.rows.some((r) => r[k] == null)
       ? null
       : snapshot.rows.reduce((sum, r) => sum + r[k]!, 0);
+  const fabriqCoverage = snapshot
+    ? {
+        found: snapshot.rows.filter((row) => row.fabriqMatch === "matched")
+          .length,
+        total: snapshot.rows.length,
+      }
+    : null;
   return (
     <section className="panel">
       <h2>3. Объёмы и эффективность пулов</h2>
@@ -68,6 +83,13 @@ export function PoolPanel({
           {refresh.isPending
             ? "Получаю пулы и минутные объёмы…"
             : "Обновить пулы"}
+        </button>
+        <button
+          disabled={demo || pipelineBusy || openFabriq.isPending}
+          onClick={() => openFabriq.mutate()}
+          title="Открыть Fabriq для проверки Cloudflare и чтения 5m Fees"
+        >
+          Открыть Fabriq
         </button>
         <label>
           Сортировка{" "}
@@ -84,6 +106,7 @@ export function PoolPanel({
       {(query.error || refresh.error) && (
         <p role="alert">{(query.error || refresh.error)?.message}</p>
       )}
+      {openFabriq.error && <p role="alert">{openFabriq.error.message}</p>}
       {!snapshot && (
         <p>
           Нажмите «Обновить пулы». Источник:{" "}
@@ -103,6 +126,11 @@ export function PoolPanel({
               · 1 час {usd(sums("sum1hUsd"))}
             </b>
           </p>
+          {fabriqCoverage && (
+            <p>
+              Fabriq: {fabriqCoverage.found}/{fabriqCoverage.total} пулов
+            </p>
+          )}
           <p>
             {meteora
               ? "Завершённые 5-минутные интервалы до "
@@ -148,6 +176,7 @@ export function PoolPanel({
                     </th>
                   )}
                   {meteora && <th>Dynamic Fee</th>}
+                  <th>5m Fees</th>
                   <th>Объём 5м</th>
                   {meteora && (
                     <>
@@ -171,6 +200,10 @@ export function PoolPanel({
                     "--pool-strength": strength,
                     "--pool-tint": strength > 0 ? 0.04 + strength * 0.18 : 0,
                   } as CSSProperties;
+                  const feeTone = poolFeeTone(
+                    p.fabriqFees5mUsd,
+                    mode ?? "unknown",
+                  );
                   return (
                     <tr
                       key={p.address}
@@ -255,6 +288,13 @@ export function PoolPanel({
                         </td>
                       )}
                       {meteora && <td>{pct(p.dynamicFeePct ?? null)}</td>}
+                      <td
+                        data-tone={feeTone.kind}
+                        style={metricToneStyle(feeTone)}
+                        title={feeTone.hint}
+                      >
+                        {usd(p.fabriqFees5mUsd ?? null)}
+                      </td>
                       <td>{usd(p.sum5mUsd)}</td>
                       {meteora && (
                         <>

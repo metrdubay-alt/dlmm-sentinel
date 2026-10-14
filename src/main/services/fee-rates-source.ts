@@ -10,8 +10,7 @@ export async function enrichFees(
   fetcher: typeof fetch = fetch,
   now: () => Date = () => new Date(),
 ): Promise<GmgnSnapshot> {
-  if (!snapshot.nativeFees || snapshot.nativeFees.asset === "SOL")
-    return snapshot;
+  if (!snapshot.nativeFees) return snapshot;
   const get = async (url: string) => {
     const r = await fetcher(url, {
       redirect: "error",

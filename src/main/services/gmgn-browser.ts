@@ -3,6 +3,7 @@ import { GMGN_READ_SCRIPT } from "./gmgn-dom";
 import { readConnection } from "./source-connection";
 import { loadSourcePage } from "./source-navigation";
 import { enrichFees } from "./fee-rates-source";
+import { readGmgnAllTimeVolume } from "./gmgn-chart-range";
 import { BrowserWindow, session } from "electron";
 import {
   gmgnTargetSchema,
@@ -181,6 +182,12 @@ export class GmgnBrowser {
     if (win.isDestroyed() || win.webContents.getURL() !== url)
       throw new Error("Карточка изменилась при чтении.");
     if (minuteVolumes) snapshot.minuteVolumes = minuteVolumes;
+    const chartRange = await readGmgnAllTimeVolume(
+      (script) => win.webContents.executeJavaScript(script),
+      target,
+      snapshot.observedAt,
+    );
+    if (chartRange) snapshot.chartRangeVolume = chartRange;
     return enrichFees(snapshot);
   }
 

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { calculateFeeVolume, feeVolumeTone } from "../../shared/analysis/fee-volume";
+import {
+  calculateFeeVolume,
+  feeVolumeTone,
+} from "../../shared/analysis/fee-volume";
 
 describe("GMGN Total Fees / all-time chart volume", () => {
   it("converts native Total Fees to USD before dividing by chart volume", () => {
@@ -14,7 +17,11 @@ describe("GMGN Total Fees / all-time chart volume", () => {
 
   it("does not fabricate a percentage when either source is unavailable", () => {
     expect(
-      calculateFeeVolume({ totalFeesNative: null, nativeUsd: 140, volumeUsd: 1 }),
+      calculateFeeVolume({
+        totalFeesNative: null,
+        nativeUsd: 140,
+        volumeUsd: 1,
+      }),
     ).toBeNull();
     expect(
       calculateFeeVolume({ totalFeesNative: 1, nativeUsd: null, volumeUsd: 1 }),

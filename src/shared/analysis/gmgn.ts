@@ -49,6 +49,16 @@ const measurementSchema = z
     precision: z.enum(["display", "rounded", "missing"]),
   })
   .strict();
+const chartRangeVolumeSchema = z
+  .object({
+    source: z.literal("GMGN chart"),
+    observedAt: z.string().datetime(),
+    firstCompletedEpochSeconds: z.number().int().nonnegative(),
+    latestCompletedEpochSeconds: z.number().int().nonnegative(),
+    candleSeconds: z.number().int().positive(),
+    volumeUsd: measurementSchema,
+  })
+  .strict();
 const holderSchema = z.object({
   address: walletAddress,
   tags: z.array(z.string().max(100)).max(30),
@@ -92,6 +102,7 @@ export const gmgnSnapshotSchema = z
         usd: z.number().nonnegative().finite(),
       })
       .optional(),
+    chartRangeVolume: chartRangeVolumeSchema.optional(),
     minuteVolumes: minuteVolumeSchema.optional(),
     watchers: measurementSchema.optional(),
     displayedPoolLiquidity: measurementSchema.optional(),

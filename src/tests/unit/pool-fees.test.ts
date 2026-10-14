@@ -22,10 +22,13 @@ describe("actual Fabriq five-minute pool fees", () => {
   it("matches only a full exact pool address and retains partial coverage", () => {
     const matched = "11111111111111111111111111111111";
     const other = "22222222222222222222222222222222";
-    const rows = applyFabriqFees([row(matched), row(other)], [
-      { address: matched, fees5mUsd: 530.88 },
-      { address: "33333333333333333333333333333333", fees5mUsd: 999 },
-    ]);
+    const rows = applyFabriqFees(
+      [row(matched), row(other)],
+      [
+        { address: matched, fees5mUsd: 530.88 },
+        { address: "33333333333333333333333333333333", fees5mUsd: 999 },
+      ],
+    );
 
     expect(rows).toMatchObject([
       { address: matched, fabriqFees5mUsd: 530.88, fabriqMatch: "matched" },

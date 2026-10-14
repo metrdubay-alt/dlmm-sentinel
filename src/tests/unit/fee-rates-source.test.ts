@@ -22,6 +22,26 @@ const snapshot = () =>
     target,
     time,
   );
+const solTarget = {
+  chain: "sol" as const,
+  address: "F9PvspnWkP3hSLaYxQb2LvFRBgyrLVhdUJ5q39tZZPbC",
+};
+const solSnapshot = () =>
+  parseGmgnCard(
+    {
+      url: `https://gmgn.ai/sol/token/${solTarget.address}`,
+      tokenLinks: [`https://solscan.io/token/${solTarget.address}`],
+      info: { "Total Fees": "376.03" },
+      risk: {},
+      pool: {},
+      tooltips: [],
+      volumeText: "",
+      volumePeriod: "",
+      feeIcon: "IconSolanabal14pxS",
+    },
+    solTarget,
+    time,
+  );
 it("uses fresh Coinbase USD quotes after CoinGecko 403 without rounding native fees", async () => {
   const fetcher = vi.fn(async (input: string | URL | Request) =>
     String(input).includes("coingecko")
@@ -66,5 +86,24 @@ it("does not query backup when primary quotes are fresh", async () => {
     () => new Date(time),
   );
   expect(s.feeConversion?.source).toBe("CoinGecko");
+  expect(fetcher).toHaveBeenCalledTimes(1);
+});
+it("records the USD rate for SOL Total Fees without changing the SOL amount", async () => {
+  const fetcher = vi.fn(async () =>
+    Response.json({
+      solana: { usd: 140, last_updated_at: Date.parse(time) / 1000 },
+    }),
+  );
+  const s = await enrichFees(
+    solSnapshot(),
+    fetcher as typeof fetch,
+    () => new Date(time),
+  );
+  expect(s.metrics.totalFeesSolEquivalent.value).toBe(376.03);
+  expect(s.feeConversion).toMatchObject({
+    nativeUsd: 140,
+    solUsd: 140,
+    usd: 52644.2,
+  });
   expect(fetcher).toHaveBeenCalledTimes(1);
 });

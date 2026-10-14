@@ -56,7 +56,7 @@ export const FABRIQ_READ_SCRIPT = `(() => {
   const result=[];
   for(const root of roots){
     const header=[...root.querySelectorAll('thead th,[role="columnheader"]')].filter(visible);
-    const index=header.findIndex(e=>/^5m\s*Fees$/i.test(text(e)));
+    const index=header.findIndex(e=>/^5m\\s*Fees$/i.test(text(e)));
     if(index<0) continue;
     const rows=[...root.querySelectorAll('tbody tr,[role="row"]')].filter(row=>visible(row)&&row.querySelector('td,[role="cell"]'));
     for(const row of rows){

@@ -38,6 +38,10 @@ import {
 } from "../../shared/analysis/prospects";
 import { metricLabels } from "./NumericPage";
 import { feeDisplay } from "../lib/fee-display";
+import {
+  calculateFeeVolume,
+  feeVolumeTone,
+} from "../../shared/analysis/fee-volume";
 const empty: WorkspaceConfig = {
   target: { chain: "sol", address: "" },
   label: "",
@@ -512,6 +516,15 @@ export function WorkspacePage() {
             key={tokenKey(r.config.target)}
             target={r.config.target}
             demo={demo}
+            mode={
+              r.config.numericProfileId === "runner" ||
+              r.config.numericProfileId === "slowcook"
+                ? r.config.numericProfileId
+                : r.gmgn
+                  ? numericScore(gmgnStrategyInput(r.gmgn)).assessment
+                      .classification.mode
+                  : "unknown"
+            }
           />
         </>
       )}
@@ -596,6 +609,12 @@ function NumericSummary({
       ? s.metrics.bundlersPct.value + s.metrics.phishingPct.value
       : null;
   const combinedTone = colour("combinedPct", combined);
+  const feeVolume = calculateFeeVolume({
+    totalFeesNative: s?.nativeFees?.amount.value ?? null,
+    nativeUsd: s?.feeConversion?.nativeUsd ?? null,
+    volumeUsd: s?.chartRangeVolume?.volumeUsd.value ?? null,
+  });
+  const feeVolumePolicy = feeVolumeTone(feeVolume?.percent);
   return (
     <section className="panel">
       <h2>1. Числовой анализ</h2>
@@ -790,6 +809,27 @@ function NumericSummary({
                   </Fragment>
                 );
               })}
+              <tr>
+                <td>Fees / Vol</td>
+                <td>
+                  <span
+                    className="metric-value"
+                    data-tone={feeVolumePolicy.kind}
+                    style={metricToneStyle(feeVolumePolicy)}
+                    title={`${feeVolumePolicy.hint} Total Fees GMGN / Vol графика.`}
+                  >
+                    {feeVolume === null
+                      ? "—"
+                      : `${s.feeConversion?.source === "CoinGecko" || s.feeConversion?.source === "Coinbase" || s.chartRangeVolume?.volumeUsd.precision === "display" ? "" : "≈ "}${feeVolume.percent.toLocaleString("ru-RU", { maximumFractionDigits: 4 })}%`}
+                  </span>
+                  {feeVolumePolicy.redFlag && (
+                    <RedFlag hint={feeVolumePolicy.hint} />
+                  )}
+                  {s.chartRangeVolume && (
+                    <small> Total Fees GMGN / Vol графика</small>
+                  )}
+                </td>
+              </tr>
             </tbody>
           </table>
           {r.config.target.chain === "sol" && (

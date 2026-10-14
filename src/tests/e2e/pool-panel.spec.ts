@@ -28,6 +28,8 @@ test("ДЕМО-ДАННЫЕ: pool table switches ranking windows and never fetch
     volume1hUsd: 1000,
     sum5mUsd: 100,
     sum1hUsd: 1000,
+    fabriqFees5mUsd: null,
+    fabriqMatch: "missing" as const,
     issue: "",
   };
   const data = poolSnapshotSchema.parse({
@@ -49,6 +51,8 @@ test("ДЕМО-ДАННЫЕ: pool table switches ranking windows and never fetch
         ...common,
         address: "11111111111111111111111111111111",
         name: "ДЕМО A",
+        fabriqFees5mUsd: 530.88,
+        fabriqMatch: "matched" as const,
         efficiency5m: 1,
         efficiency1h: 2,
       },
@@ -114,11 +118,20 @@ test("ДЕМО-ДАННЫЕ: pool table switches ranking windows and never fetch
       page.getByRole("button", { name: "ДЕМО LOW TVL", exact: true }),
     ).toHaveCount(0);
     await expect(table.first()).toContainText("ДЕМО B");
-    await expect(table.first().locator("td").nth(2)).toContainText("24ч: 576,0%");
-    await expect(table.first().locator("td").nth(3)).toContainText("24ч: 24,0%");
+    await expect(table.first().locator("td").nth(2)).toContainText(
+      "24ч: 576,0%",
+    );
+    await expect(table.first().locator("td").nth(3)).toContainText(
+      "24ч: 24,0%",
+    );
     await expect(page.locator("th[aria-sort=descending]")).toContainText(
       "Fee/TVL 5м",
     );
+    await expect(table.first()).toContainText("—");
+    await expect(page.getByText("5m Fees", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText("Fabriq: 1/13 пулов", { exact: true }),
+    ).toBeVisible();
     await expect(table.first()).toHaveCSS("--pool-strength", "1");
     await expect(table.nth(1)).toHaveCSS("--pool-strength", "0.5");
     await page
@@ -134,6 +147,7 @@ test("ДЕМО-ДАННЫЕ: pool table switches ranking windows and never fetch
       .screenshot({ path: "test-results/pool-gradient.png" });
     await page.getByLabel("Сортировка пулов").selectOption("1h");
     await expect(table.first()).toContainText("ДЕМО A");
+    await expect(table.first()).toContainText("$531");
     await expect(
       page.getByText(/Объём проверенных активных пулов/),
     ).toContainText(/1\s300/);

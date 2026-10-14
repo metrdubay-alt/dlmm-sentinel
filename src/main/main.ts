@@ -170,9 +170,14 @@ async function start() {
                 throw new Error("Grok отключён в демо-режиме.");
               const target = commands.grokRun.input.parse(parsed),
                 current = await workspaceStore.report(target);
-              const collect = async (handle: string): Promise<XFollowingOverlap> => {
+              const collect = async (
+                handle: string,
+              ): Promise<XFollowingOverlap> => {
                 try {
-                  return await xBrowser.collectFollowingOverlap(handle, window!);
+                  return await xBrowser.collectFollowingOverlap(
+                    handle,
+                    window!,
+                  );
                 } catch {
                   return {
                     state: "error",
@@ -361,9 +366,9 @@ async function start() {
                 // pool volumes remain useful, with explicit unmatched coverage.
               }
               const snapshot = poolSnapshotSchema.parse({
-                ...base,
-                rows: applyFabriqFees(base.rows, evidence),
-              }),
+                  ...base,
+                  rows: applyFabriqFees(base.rows, evidence),
+                }),
                 key = `pool-snapshot:${t.chain}:${t.address}`;
               await db.liveCache.upsert({
                 where: { key },
