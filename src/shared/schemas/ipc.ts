@@ -38,6 +38,7 @@ export const commands = {
     output: poolSnapshotSchema.nullable(),
   },
   poolsRefresh: { input: gmgnTargetSchema, output: poolSnapshotSchema },
+  fabriqOpen: { input: z.undefined(), output: z.boolean() },
   workspaceList: {
     input: z.undefined(),
     output: z.array(workspaceStateSchema).max(20),

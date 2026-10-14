@@ -29,6 +29,11 @@ import { MoniStore } from "./services/moni-store";
 import { SerialQueue } from "./services/serial-queue";
 import { GmgnBrowser } from "./services/gmgn-browser";
 import { GmgnStore } from "./services/gmgn-store";
+import { FabriqBrowser } from "./services/fabriq-browser";
+import {
+  applyFabriqFees,
+  type FabriqFeeEvidence,
+} from "../shared/analysis/pool-fees";
 import type { XFollowingOverlap } from "../shared/analysis/x-following-overlap";
 const dev = !app.isPackaged && process.env.SENTINEL_DEV === "1";
 if (process.env.SENTINEL_DATA_DIR)
@@ -50,6 +55,7 @@ async function start() {
   const moniStore = new MoniStore(db);
   const moniQueue = new SerialQueue();
   const gmgnBrowser = new GmgnBrowser();
+  const fabriqBrowser = new FabriqBrowser();
   const gmgnStore = new GmgnStore(db);
   const xBrowser = new XBrowser();
   const grokBrowser = new GrokBrowser();
@@ -345,7 +351,19 @@ async function start() {
               if ((await service.settings()).demoMode)
                 throw new Error("Пулы отключены в демо-режиме.");
               const t = commands.poolsRefresh.input.parse(parsed);
-              const snapshot = await poolSource.capture(t),
+              const base = await poolSource.capture(t);
+              let evidence: FabriqFeeEvidence[] = [];
+              try {
+                await fabriqBrowser.open(window!, true);
+                evidence = await fabriqBrowser.capture();
+              } catch {
+                // Fabriq's Cloudflare page and a source outage are both non-fatal:
+                // pool volumes remain useful, with explicit unmatched coverage.
+              }
+              const snapshot = poolSnapshotSchema.parse({
+                ...base,
+                rows: applyFabriqFees(base.rows, evidence),
+              }),
                 key = `pool-snapshot:${t.chain}:${t.address}`;
               await db.liveCache.upsert({
                 where: { key },
@@ -353,6 +371,12 @@ async function start() {
                 update: { snapshotJson: JSON.stringify(snapshot) },
               });
               data = snapshot;
+              break;
+            }
+            case "fabriqOpen": {
+              if ((await service.settings()).demoMode)
+                throw new Error("Fabriq отключён в демо-режиме.");
+              data = await fabriqBrowser.open(window!);
               break;
             }
             case "gmgnOpen":
@@ -437,6 +461,7 @@ async function start() {
               if (commands.saveSettings.input.parse(parsed).demoMode) {
                 moniBrowser.close();
                 gmgnBrowser.close();
+                fabriqBrowser.close();
                 xBrowser.close();
                 grokBrowser.close();
               }
@@ -494,6 +519,7 @@ async function start() {
               if (data) {
                 await moniBrowser.clear();
                 await gmgnBrowser.clear();
+                await fabriqBrowser.clear();
                 await xBrowser.clear();
                 grokBrowser.close();
                 await service.deleteData();
@@ -531,6 +557,7 @@ async function start() {
         "workspaceOpen",
         "sourceLogin",
         "poolsRefresh",
+        "fabriqOpen",
         "moniOpen",
         "moniCapture",
         "moniHistory",
@@ -548,6 +575,7 @@ async function start() {
     xBrowser.close();
     grokBrowser.close();
     gmgnBrowser.close();
+    fabriqBrowser.close();
     moniBrowser.close();
   });
   window.once("ready-to-show", () => window?.show());
