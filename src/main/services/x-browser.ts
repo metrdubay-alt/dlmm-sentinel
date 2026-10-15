@@ -1,4 +1,5 @@
 import { readConnection } from "./source-connection";
+import { xProfileReadyScript } from "./x-profile-ready";
 import { loadSourcePage } from "./source-navigation";
 import { BrowserWindow, session } from "electron";
 import { allowedX, parseXProfile } from "../../shared/analysis/x-browser";
@@ -193,9 +194,8 @@ export class XBrowser {
   ): Promise<XFollowingOverlap> {
     const target = moniHandleSchema.parse(requested);
     await this.openUrl("https://x.com/home", parent, true);
-    const viewer: unknown = await this.window!.webContents.executeJavaScript(
-      X_VIEWER_SCRIPT,
-    );
+    const viewer: unknown =
+      await this.window!.webContents.executeJavaScript(X_VIEWER_SCRIPT);
     const current = viewer as XViewer;
     const observedAt = new Date().toISOString();
     if (current.signedOut || !current.handle)
@@ -213,19 +213,39 @@ export class XBrowser {
         observedAt,
       );
     await this.openUrl(`https://x.com/${current.handle}`, parent, true);
-    const ownRaw: unknown = await this.window!.webContents.executeJavaScript(
-      X_READ_SCRIPT,
+    await this.window!.webContents.executeJavaScript(
+      xProfileReadyScript(current.handle),
     );
+    const ownRaw: unknown =
+      await this.window!.webContents.executeJavaScript(X_READ_SCRIPT);
     const own = ownRaw as { following?: string };
+    // The public profile has an explicit zero-overlap statement which the
+    // followers route often omits. Read it before attempting that route.
+    await this.openUrl(`https://x.com/${target}`, parent, true);
+    await this.window!.webContents.executeJavaScript(
+      xProfileReadyScript(target),
+    );
+    const profileOverlap = (await this.window!.webContents.executeJavaScript(
+      X_OVERLAP_SCRIPT,
+    )) as XOverlapPage;
+    if (profileOverlap.noneFollowedByYou) {
+      return parseXFollowingOverlapPayload(
+        { ...profileOverlap, followingTotal: own.following ?? "" },
+        target,
+        observedAt,
+      );
+    }
     let overlapRaw: unknown;
     try {
       await this.openUrl(`https://x.com/${target}/followers`, parent, true);
-      overlapRaw = await this.window!.webContents.executeJavaScript(X_OVERLAP_SCRIPT);
+      overlapRaw =
+        await this.window!.webContents.executeJavaScript(X_OVERLAP_SCRIPT);
     } catch {
       // X sometimes blocks the followers route while the public profile still states
       // that none of the signed-in user's follows follows this account.
       await this.openUrl(`https://x.com/${target}`, parent, true);
-      overlapRaw = await this.window!.webContents.executeJavaScript(X_OVERLAP_SCRIPT);
+      overlapRaw =
+        await this.window!.webContents.executeJavaScript(X_OVERLAP_SCRIPT);
     }
     const overlap = overlapRaw as XOverlapPage;
     if (this.window?.isDestroyed())

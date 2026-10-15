@@ -30,7 +30,7 @@ const money = (value: string) => {
   };
 };
 
-/** A visible GMGN range measurement, not an API estimate. */
+/** A complete GMGN chart measurement with verified token and time bounds. */
 export function parseGmgnAllTimeVolume(
   raw: unknown,
   target: GmgnTarget,
@@ -74,28 +74,56 @@ export function parseGmgnAllTimeVolume(
     : null;
 }
 
-/**
- * The page exposes range measurements only after the visible chart range tool
- * has selected a completed range. We read that rendered overlay and never
- * synthesize a range from price candles or another token's history.
- */
-export const GMGN_CHART_RANGE_SCRIPT = `(() => {
-  const visible=e=>!!e&&e.getClientRects().length>0&&getComputedStyle(e).visibility==='visible';
-  const text=e=>(e?.innerText||e?.textContent||'').replace(/[\\uE000-\\uF8FF]/g,'').trim();
-  const root=document.querySelector('#GlobalScrollDomId');
-  if(!root) return null;
-  const tokenAddress=location.pathname.split('/').at(-1)||'';
-  const overlays=[...document.querySelectorAll('[data-testid*="range"],[class*="measure" i],[class*="range" i]')].filter(visible);
-  const candidate=overlays.map(text).find(t=>/\\b(?:Vol|Volume|Объём|Объем)\\b/i.test(t)&&/\\bbars?\\b/i.test(t));
-  if(!candidate) return null;
-  const volume=/\\b(?:Vol|Volume|Объём|Объем)\\s*\\$?((?:\\d{1,3}(?:,\\d{3})+|\\d+)(?:\\.\\d+)?[KMB]?)/i.exec(candidate)?.[1]||'';
-  const range=root.querySelector('[data-sentinel-full-range="true"]');
-  const first=Number(range?.getAttribute('data-first-completed-epoch'));
-  const latest=Number(range?.getAttribute('data-latest-completed-epoch'));
-  const candle=Number(range?.getAttribute('data-candle-seconds'));
-  if(!range||!Number.isInteger(first)||!Number.isInteger(latest)||!Number.isInteger(candle)) return null;
-  return {url:location.href,tokenAddress,fullRange:true,firstCompletedEpochSeconds:first,latestCompletedEpochSeconds:latest,candleSeconds:candle,volumeText:volume?('$'+volume):''};
-})()`;
+/** Read the chart's own USD volume series. Completed daily bars plus today's
+ * completed minute bars cover the full history without overlap. Never accept a
+ * limited history unless an earlier request confirms its beginning. No chart
+ * settings or selected ranges are changed. */
+export function gmgnChartHistoryScript(target: GmgnTarget, observedAt: string) {
+  return `(async()=>{
+    const path=${JSON.stringify(`/${target.chain}/token/${target.address}`)};
+    const symbol=${JSON.stringify(`${target.chain}/${target.address}/USD/`)};
+    const observed=${JSON.stringify(Date.parse(observedAt))};
+    const matches=()=>location.origin==='https://gmgn.ai'&&location.pathname===path;
+    if(!matches()||!Number.isFinite(observed))return null;
+    const frame=document.querySelector('iframe[id^="tradingview_"]');
+    const feed=frame&&window[frame.id]?.datafeed;
+    const ticker=frame?.contentWindow?.chartWidget?.getSymbol();
+    if(!feed?.getBars||feed.firstBarBudgetScope!=null||typeof ticker!=='string'||!ticker.startsWith(symbol))return null;
+    const read=(resolution,to,countBack)=>new Promise((resolve,reject)=>{
+      const timer=setTimeout(()=>reject(Error('GMGN chart history timeout')),12000);
+      const finish=(value)=>{clearTimeout(timer);resolve(value)};
+      try {feed.getBars({ticker},resolution,{from:0,to,countBack,firstDataRequest:false},
+        (bars,meta)=>finish({bars,meta}),()=>finish(null));}catch{finish(null)}
+    });
+    const valid=(result,step)=>result&&Array.isArray(result.bars)&&result.bars.every((b,i,a)=>
+      Number.isSafeInteger(b.time)&&b.time>=0&&b.time%step===0&&
+      typeof b.volume==='number'&&Number.isFinite(b.volume)&&b.volume>=0&&
+      (i===0||b.time>a[i-1].time));
+    try {
+      const end=Math.floor(observed/60000)*60000;
+      const day=Math.floor(end/86400000)*86400000;
+      const daily=await read('1D',Math.floor(observed/1000),2000);
+      if(!valid(daily,86400000)||!daily.bars.length)return null;
+      const first=daily.bars[0].time;
+      const before=await read('1D',first/1000-1,1);
+      if(!before||before.bars?.length!==0||before.meta?.noData!==true)return null;
+      const minute=await read('1',Math.floor(observed/1000),1500);
+      if(!valid(minute,60000)||!minute.bars.length)return null;
+      // 1500 bars cover every possible minute of a UTC day; require a boundary
+      // anchor as well, unless this token's entire history started today.
+      if(first<day&&minute.bars[0].time>day)return null;
+      const bars=[...daily.bars.filter(b=>b.time<day),...minute.bars.filter(b=>b.time>=day&&b.time<end)];
+      if(!bars.length||!matches()||frame.contentWindow.chartWidget.getSymbol()!==ticker)return null;
+      const volume=bars.reduce((sum,b)=>sum+b.volume,0);
+      if(!Number.isFinite(volume))return null;
+      const last=bars.at(-1);
+      const lastStep=last.time<day?86400:60;
+      return {url:location.href,tokenAddress:${JSON.stringify(target.address)},fullRange:true,
+        firstCompletedEpochSeconds:bars[0].time/1000,latestCompletedEpochSeconds:last.time/1000,
+        candleSeconds:lastStep,volumeText:'$'+volume.toFixed(8)};
+    }catch{return null}
+  })()`;
+}
 
 export async function readGmgnAllTimeVolume(
   execute: (script: string) => Promise<unknown>,
@@ -104,7 +132,7 @@ export async function readGmgnAllTimeVolume(
 ) {
   try {
     return parseGmgnAllTimeVolume(
-      await execute(GMGN_CHART_RANGE_SCRIPT),
+      await execute(gmgnChartHistoryScript(target, observedAt)),
       target,
       observedAt,
     );

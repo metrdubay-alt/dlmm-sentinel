@@ -115,3 +115,16 @@ chart must produce `null`, never a guessed total.
   the user.
 - No calculation of the third `V all-time > MC` signal in this change.
 - No change to the existing score /100 or automatic entry decision.
+
+## 0.3.73 implementation correction
+
+The original DOM reader depended on a `data-sentinel-full-range` marker that
+GMGN never creates. Live inspection confirmed that the chart lives in a
+same-origin TradingView iframe and its own datafeed exposes USD candle volumes.
+The reader now uses that chart datafeed, without changing chart settings:
+completed UTC days plus completed minutes of the current UTC day. The current
+daily candle is excluded to prevent double counting. A request preceding the
+first daily candle must confirm no earlier data; a minute boundary anchor is
+required for older tokens. Invalid values, navigation, truncated history and
+timeouts return null. This replaces the unimplemented drawing-overlay approach;
+it does not substitute 5m/1h volume or another provider's volume.
