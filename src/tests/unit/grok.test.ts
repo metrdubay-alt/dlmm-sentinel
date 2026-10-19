@@ -185,6 +185,15 @@ it("uses GMGN social clues and rejects a launchpad nickname without an X identit
   ]);
 });
 
+it("asks Grok to verify a persisted GMGN profile candidate when the live GMGN page is closed", () => {
+  const candidateContext = {
+    ...context,
+    profileCandidates: ["web4dotapp"],
+  };
+
+  expect(buildGrokPrompt(candidateContext)).toContain("@web4dotapp");
+});
+
 it("accepts an evidence-linked fee recipient activity block and keeps older reports compatible", () => {
   const feeRecipientSupport = {
     summary:

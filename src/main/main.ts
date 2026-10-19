@@ -195,6 +195,13 @@ async function start() {
                 current.config,
                 window,
                 await gmgnBrowser.socialLinks(target),
+                (current.config.relatedAccounts ?? [])
+                  .filter(
+                    (account) =>
+                      account.role === "source_link" &&
+                      account.attribution === "gmgn",
+                  )
+                  .map((account) => account.handle),
               );
               const discoveredHandle =
                 result.handle ?? result.answer.discoveredProfile?.handle;

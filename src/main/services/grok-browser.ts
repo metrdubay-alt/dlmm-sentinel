@@ -117,6 +117,7 @@ export class GrokBrowser extends XBrowser {
     config: WorkspaceConfig,
     parent: BrowserWindow,
     socialLinks: string[] = [],
+    profileCandidates: string[] = [],
   ) {
     if (this.busy) throw new Error("Анализ Grok уже выполняется.");
     this.busy = true;
@@ -127,6 +128,7 @@ export class GrokBrowser extends XBrowser {
       handle: config.handle,
       requestId: randomUUID(),
       startedAt: new Date().toISOString(),
+      profileCandidates,
     };
     this.state = {
       target: context.target,
