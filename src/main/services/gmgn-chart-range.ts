@@ -10,7 +10,7 @@ const candleResolutions = {
   "1d": 86_400,
 } as const;
 type CandleResolution = keyof typeof candleResolutions;
-const maxCandles = 500;
+const maxCandles = 501;
 const gmgnSessionParameterNames = [
   "device_id",
   "fp_did",
@@ -21,6 +21,9 @@ const gmgnSessionParameterNames = [
   "tz_offset",
   "app_lang",
   "os",
+  "pool_type",
+  "tab_id",
+  "worker",
 ] as const;
 type GmgnSessionParameterName = (typeof gmgnSessionParameterNames)[number];
 
@@ -48,27 +51,50 @@ export function gmgnSessionQueryParameters(resourceNames: string[]) {
   return {};
 }
 
+export function gmgnChartRequestUrl(
+  resourceNames: string[],
+  target: GmgnTarget,
+) {
+  const expectedPath = `/api/v1/token_mcap_candles/${target.chain}/${target.address}`;
+  for (const resourceName of [...resourceNames].reverse()) {
+    try {
+      const url = new URL(resourceName);
+      if (
+        url.origin === "https://gmgn.ai" &&
+        !url.username &&
+        !url.password &&
+        (target.chain === "sol"
+          ? url.pathname === expectedPath
+          : url.pathname.toLowerCase() === expectedPath.toLowerCase())
+      )
+        return url.href;
+    } catch {
+      // Browser resource entries may contain non-URL names.
+    }
+  }
+  return null;
+}
+
 const rawCandleRangeSchema = z
   .object({
     url: z.string().url().max(2048),
     tokenAddress: z.string().max(100),
     resolution: z.enum(["1m", "5m", "15m", "1h", "4h", "1d"]),
     limit: z.literal(maxCandles),
-    data: z
-      .object({
-        _debug_tpool: z.object({ base_address: z.string().max(100) }).nullish(),
-        list: z
-          .array(
-            z.object({
-              time: z.number().int().positive(),
-              volume: z.union([
-                z.number().finite(),
-                z.string().regex(/^\d+(?:\.\d+)?$/),
-              ]),
-            }),
-          )
-          .max(maxCandles),
-      }),
+    data: z.object({
+      _debug_tpool: z.object({ base_address: z.string().max(100) }).nullish(),
+      list: z
+        .array(
+          z.object({
+            time: z.number().int().positive(),
+            volume: z.union([
+              z.number().finite(),
+              z.string().regex(/^\d+(?:\.\d+)?$/),
+            ]),
+          }),
+        )
+        .max(maxCandles),
+    }),
   })
   .strict();
 
@@ -161,18 +187,20 @@ export function gmgnAllTimeCandlesScript(
   target: GmgnTarget,
   resolution: CandleResolution,
   sessionParameters: Partial<Record<GmgnSessionParameterName, string>> = {},
+  chartUrl: string | null = null,
 ) {
   return `(async()=>{
   const path=${JSON.stringify("/api/v1/token_mcap_candles/" + target.chain + "/" + target.address)};
   const tokenPath=${JSON.stringify("/" + target.chain + "/token/" + target.address)};
   if(location.origin!=="https://gmgn.ai"||location.pathname!==tokenPath)throw Error('Token changed');
   const resourceNames=performance.getEntriesByType('resource').map(e=>e.name);
-  const match=[...resourceNames].reverse().find(name=>{try{const u=new URL(name);return u.origin===location.origin&&u.pathname===path}catch{return false}});
+  const capturedChartUrl=${JSON.stringify(chartUrl)};
+  const match=capturedChartUrl||[...resourceNames].reverse().find(name=>{try{const u=new URL(name);return u.origin===location.origin&&u.pathname===path}catch{return false}});
   const url=new URL(match||path,location.origin);
   const sessionKeys=${JSON.stringify(gmgnSessionParameterNames)};
   const capturedSessionParameters=${JSON.stringify(sessionParameters)};
   const sessionSource=[...resourceNames].reverse().map(name=>{try{return new URL(name)}catch{return null}}).find(u=>u&&u.origin===location.origin&&/^\\/(?:api|vas)\\//.test(u.pathname)&&sessionKeys.some(key=>u.searchParams.has(key)));
-  for(const key of ['from','to','from_timestamp','to_timestamp','before_timestamp','limit','resolution',...sessionKeys])url.searchParams.delete(key);
+  for(const key of ['from','to','from_timestamp','to_timestamp','before_timestamp','limit','resolution'])url.searchParams.delete(key);
   for(const key of sessionKeys){const value=capturedSessionParameters[key]||sessionSource?.searchParams.get(key);if(value)url.searchParams.set(key,value)}
   url.searchParams.set('resolution',${JSON.stringify(resolution)});url.searchParams.set('from','0');url.searchParams.set('to',String(Date.now()));url.searchParams.set('limit',${JSON.stringify(maxCandles)});
   const response=await fetch(url.href,{credentials:'same-origin',cache:'no-store',redirect:'error',headers:{Accept:'application/json'},signal:AbortSignal.timeout(10000)});
@@ -188,12 +216,20 @@ export async function readGmgnAllTimeVolume(
   target: GmgnTarget,
   observedAt: string,
   sessionParameters: Partial<Record<GmgnSessionParameterName, string>> = {},
+  chartUrl: string | null = null,
 ) {
-  for (const resolution of Object.keys(candleResolutions) as CandleResolution[]) {
+  for (const resolution of Object.keys(
+    candleResolutions,
+  ) as CandleResolution[]) {
     try {
       const parsed = parseGmgnAllTimeCandleVolume(
         await execute(
-          gmgnAllTimeCandlesScript(target, resolution, sessionParameters),
+          gmgnAllTimeCandlesScript(
+            target,
+            resolution,
+            sessionParameters,
+            chartUrl,
+          ),
         ),
         target,
         observedAt,

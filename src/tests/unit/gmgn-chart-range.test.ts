@@ -1,5 +1,6 @@
 import { expect, it } from "vitest";
 import {
+  gmgnChartRequestUrl,
   gmgnAllTimeCandlesScript,
   gmgnSessionQueryParameters,
   parseGmgnAllTimeCandleVolume,
@@ -13,7 +14,7 @@ it("reuses GMGN's session query parameters from a same-origin API request", () =
   expect(
     gmgnSessionQueryParameters([
       "https://example.test/api/v1/token_holders/sol/x?device_id=wrong",
-      "https://gmgn.ai/vas/api/v1/token_holders/sol/x?device_id=device&fp_did=fingerprint&client_id=web&from_app=gmgn&app_ver=1.2.3&tz_name=Europe%2FMoscow&tz_offset=180&app_lang=ru&os=windows&ignored=secret",
+      "https://gmgn.ai/vas/api/v1/token_holders/sol/x?device_id=device&fp_did=fingerprint&client_id=web&from_app=gmgn&app_ver=1.2.3&tz_name=Europe%2FMoscow&tz_offset=180&app_lang=ru&os=windows&pool_type=tpool&tab_id=tab&worker=0&ignored=secret",
     ]),
   ).toEqual({
     device_id: "device",
@@ -25,18 +26,49 @@ it("reuses GMGN's session query parameters from a same-origin API request", () =
     tz_offset: "180",
     app_lang: "ru",
     os: "windows",
+    pool_type: "tpool",
+    tab_id: "tab",
+    worker: "0",
   });
 });
 
+it("keeps the exact GMGN chart request for the active token", () => {
+  const chartUrl = `https://gmgn.ai/api/v1/token_mcap_candles/sol/${address}?device_id=device&pool_type=tpool&tab_id=tab&worker=0&resolution=1m&limit=501`;
+  expect(
+    gmgnChartRequestUrl(
+      [
+        "https://gmgn.ai/api/v1/token_mcap_candles/sol/other?pool_type=tpool",
+        chartUrl,
+      ],
+      target,
+    ),
+  ).toBe(chartUrl);
+  expect(
+    gmgnChartRequestUrl(
+      ["https://gmgn.ai/api/v1/token_mcap_candles/sol/other?pool_type=tpool"],
+      target,
+    ),
+  ).toBeNull();
+});
+
 it("prefers session parameters captured during GMGN page loading", () => {
-  const script = gmgnAllTimeCandlesScript(target, "1h", {
-    device_id: "captured-device",
-    fp_did: "captured-fingerprint",
-  });
+  const chartUrl = `https://gmgn.ai/api/v1/token_mcap_candles/sol/${address}?device_id=device&pool_type=tpool&tab_id=tab&worker=0&resolution=1m&limit=501`;
+  const script = gmgnAllTimeCandlesScript(
+    target,
+    "1h",
+    {
+      device_id: "captured-device",
+      fp_did: "captured-fingerprint",
+    },
+    chartUrl,
+  );
   expect(script).toContain(
     'const capturedSessionParameters={"device_id":"captured-device","fp_did":"captured-fingerprint"};',
   );
   expect(script).toContain("capturedSessionParameters[key]||");
+  expect(script).toContain(JSON.stringify(chartUrl));
+  expect(script).toContain('"pool_type"');
+  expect(script).toContain("'limit',501");
 });
 it("sums only completed, canonical GMGN candles for the all-time volume", () => {
   const observed = "2025-10-15T00:03:00.000Z";
@@ -47,7 +79,7 @@ it("sums only completed, canonical GMGN candles for the all-time volume", () => 
         url: `https://gmgn.ai/sol/token/${address}`,
         tokenAddress: address,
         resolution: "1m",
-        limit: 500,
+        limit: 501,
         data: {
           _debug_tpool: { base_address: address },
           list: [
@@ -97,7 +129,7 @@ it("rejects potentially truncated, mismatched, or open GMGN candle ranges", () =
     parseGmgnAllTimeCandleVolume(
       {
         ...base,
-        limit: 500,
+        limit: 501,
         data: {
           ...base.data,
           list: [{ time: completed * 1000, volume: "1" }],
@@ -114,20 +146,24 @@ it("falls back to the next GMGN chart resolution after a failed request", async 
   const completed = Math.floor(Date.parse(observed) / 1000 / 300) * 300;
   let calls = 0;
   await expect(
-    readGmgnAllTimeVolume(async () => {
-      calls++;
-      if (calls === 1) throw new Error("1m unavailable");
-      return {
-        url: `https://gmgn.ai/sol/token/${address}`,
-        tokenAddress: address,
-        resolution: "5m",
-        limit: 500,
-        data: {
-          _debug_tpool: { base_address: address },
-          list: [{ time: (completed - 300) * 1000, volume: "1234" }],
-        },
-      };
-    }, target, observed),
+    readGmgnAllTimeVolume(
+      async () => {
+        calls++;
+        if (calls === 1) throw new Error("1m unavailable");
+        return {
+          url: `https://gmgn.ai/sol/token/${address}`,
+          tokenAddress: address,
+          resolution: "5m",
+          limit: 501,
+          data: {
+            _debug_tpool: { base_address: address },
+            list: [{ time: (completed - 300) * 1000, volume: "1234" }],
+          },
+        };
+      },
+      target,
+      observed,
+    ),
   ).resolves.toMatchObject({ volumeUsd: { value: 1234 } });
   expect(calls).toBe(2);
 });

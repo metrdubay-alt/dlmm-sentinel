@@ -24,16 +24,19 @@ test("GMGN fixture: precise top10, numeric report, history, isolated window and 
         response: 1,
         checkboxChecked: false,
       });
-      session.fromPartition("persist:sentinel-gmgn").protocol.handle(
-        "https",
-        (request) => {
+      session
+        .fromPartition("persist:sentinel-gmgn")
+        .protocol.handle("https", (request) => {
           const url = new URL(request.url);
           if (url.pathname === "/vas/api/v1/token_holders/sol/fixture")
             return Response.json({ ok: true });
           if (
             url.pathname === `/api/v1/token_mcap_candles/sol/${address}` &&
-            url.searchParams.get("limit") === "500" &&
-            url.searchParams.get("device_id") === "fixture-device"
+            url.searchParams.get("limit") === "501" &&
+            url.searchParams.get("device_id") === "fixture-device" &&
+            url.searchParams.get("pool_type") === "tpool" &&
+            url.searchParams.get("tab_id") === "fixture-tab" &&
+            url.searchParams.get("worker") === "0"
           ) {
             const end = Math.floor(Date.now() / 60_000) * 60_000;
             return Response.json({
@@ -70,11 +73,10 @@ test("GMGN fixture: precise top10, numeric report, history, isolated window and 
     <div data-testid="table-cell-owned">$15,000<br>1.5%</div>
     <div data-testid="table-cell-source"><a href="/sol/address/${address}">Funding</a></div>
    </div></div>
-           </div><div role="tooltip">Bundlers hold 19.97% ATH hold 19.97%</div><div role="tooltip" style="display:none">Bundlers hold 60% ATH hold 60%</div><script>fetch('/vas/api/v1/token_holders/sol/fixture?device_id=fixture-device&fp_did=fixture-fingerprint&client_id=fixture-client&from_app=fixture&app_ver=1.0.0&tz_name=Europe%2FMoscow&tz_offset=180&app_lang=ru&os=windows')</script></body></html>`,
+           </div><div role="tooltip">Bundlers hold 19.97% ATH hold 19.97%</div><div role="tooltip" style="display:none">Bundlers hold 60% ATH hold 60%</div><script>fetch('/vas/api/v1/token_holders/sol/fixture?device_id=fixture-device&fp_did=fixture-fingerprint&client_id=fixture-client&from_app=fixture&app_ver=1.0.0&tz_name=Europe%2FMoscow&tz_offset=180&app_lang=ru&os=windows');fetch('/api/v1/token_mcap_candles/sol/${address}?device_id=fixture-device&fp_did=fixture-fingerprint&client_id=fixture-client&from_app=fixture&app_ver=1.0.0&tz_name=Europe%2FMoscow&tz_offset=180&app_lang=ru&os=windows&pool_type=tpool&tab_id=fixture-tab&worker=0&resolution=1m&limit=501')</script></body></html>`,
             { headers: { "content-type": "text/html" } },
           );
-        },
-      );
+        });
     }, address);
     const page = await app.firstWindow();
     await page

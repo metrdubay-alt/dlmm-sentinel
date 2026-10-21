@@ -4,6 +4,7 @@ import { readConnection } from "./source-connection";
 import { loadSourcePage } from "./source-navigation";
 import { enrichFees } from "./fee-rates-source";
 import {
+  gmgnChartRequestUrl,
   gmgnSessionQueryParameters,
   readGmgnAllTimeVolume,
 } from "./gmgn-chart-range";
@@ -25,6 +26,10 @@ function allowed(url: string) {
 export class GmgnBrowser {
   private window: BrowserWindow | null = null;
   private sessionQueryParameters: Record<string, string> = {};
+  private chartRequestUrls = new Map<string, string>();
+  private chartRequestKey(target: GmgnTarget) {
+    return `${target.chain}:${target.address.toLowerCase()}`;
+  }
   connection() {
     return readConnection(this.window, "gmgn");
   }
@@ -94,6 +99,31 @@ export class GmgnBrowser {
                 ...this.sessionQueryParameters,
                 ...parameters,
               };
+            try {
+              const url = new URL(details.url);
+              const match = url.pathname.match(
+                /^\/api\/v1\/token_mcap_candles\/(sol|eth|bsc|base|robinhood)\/([^/]+)$/i,
+              );
+              if (match) {
+                const parsedTarget = gmgnTargetSchema.safeParse({
+                  chain: match[1].toLowerCase(),
+                  address: match[2],
+                });
+                if (parsedTarget.success) {
+                  const chartUrl = gmgnChartRequestUrl(
+                    [details.url],
+                    parsedTarget.data,
+                  );
+                  if (chartUrl)
+                    this.chartRequestUrls.set(
+                      this.chartRequestKey(parsedTarget.data),
+                      chartUrl,
+                    );
+                }
+              }
+            } catch {
+              // Ignore malformed browser request URLs.
+            }
             callback({});
           },
         );
@@ -203,6 +233,7 @@ export class GmgnBrowser {
       target,
       snapshot.observedAt,
       this.sessionQueryParameters,
+      this.chartRequestUrls.get(this.chartRequestKey(target)) ?? null,
     );
     if (chartRange) snapshot.chartRangeVolume = chartRange;
     return enrichFees(snapshot);
@@ -215,6 +246,7 @@ export class GmgnBrowser {
   async clear() {
     this.close();
     this.sessionQueryParameters = {};
+    this.chartRequestUrls.clear();
     await session.fromPartition("persist:sentinel-gmgn").clearStorageData();
   }
 }
