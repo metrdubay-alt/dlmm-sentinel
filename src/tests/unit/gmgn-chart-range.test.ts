@@ -100,6 +100,32 @@ it("sums only completed, canonical GMGN candles for the all-time volume", () => 
   });
 });
 
+it("accepts GMGN's successful candle-response envelope", () => {
+  const observed = "2025-10-15T00:03:00.000Z";
+  const completed = Math.floor(Date.parse(observed) / 1000 / 60) * 60;
+  expect(
+    parseGmgnAllTimeCandleVolume(
+      {
+        url: `https://gmgn.ai/sol/token/${address}`,
+        tokenAddress: address,
+        resolution: "1m",
+        limit: 501,
+        data: {
+          code: 0,
+          reason: "",
+          message: "success",
+          data: {
+            _debug_tpool: { base_address: address },
+            list: [{ time: (completed - 60) * 1000, volume: "321" }],
+          },
+        },
+      },
+      target,
+      observed,
+    ),
+  ).toMatchObject({ volumeUsd: { value: 321 } });
+});
+
 it("rejects potentially truncated, mismatched, or open GMGN candle ranges", () => {
   const observed = "2025-10-15T00:03:00.000Z";
   const completed = Math.floor(Date.parse(observed) / 1000 / 60) * 60;

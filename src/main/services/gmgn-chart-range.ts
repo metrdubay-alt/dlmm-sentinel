@@ -75,26 +75,31 @@ export function gmgnChartRequestUrl(
   return null;
 }
 
+const candleDataSchema = z.object({
+  _debug_tpool: z.object({ base_address: z.string().max(100) }).nullish(),
+  list: z
+    .array(
+      z.object({
+        time: z.number().int().positive(),
+        volume: z.union([
+          z.number().finite(),
+          z.string().regex(/^\d+(?:\.\d+)?$/),
+        ]),
+      }),
+    )
+    .max(maxCandles),
+});
+
 const rawCandleRangeSchema = z
   .object({
     url: z.string().url().max(2048),
     tokenAddress: z.string().max(100),
     resolution: z.enum(["1m", "5m", "15m", "1h", "4h", "1d"]),
     limit: z.literal(maxCandles),
-    data: z.object({
-      _debug_tpool: z.object({ base_address: z.string().max(100) }).nullish(),
-      list: z
-        .array(
-          z.object({
-            time: z.number().int().positive(),
-            volume: z.union([
-              z.number().finite(),
-              z.string().regex(/^\d+(?:\.\d+)?$/),
-            ]),
-          }),
-        )
-        .max(maxCandles),
-    }),
+    data: z.union([
+      candleDataSchema,
+      z.object({ code: z.literal(0), data: candleDataSchema }),
+    ]),
   })
   .strict();
 
@@ -133,22 +138,23 @@ export function parseGmgnAllTimeCandleVolume(
   const observed = Date.parse(observedAt) / 1000;
   if (!parsed.success || !Number.isFinite(observed)) return null;
   const value = parsed.data;
+  const candlesData = "list" in value.data ? value.data : value.data.data;
   if (
     !isCanonicalTokenUrl(value.url, value.tokenAddress, target) ||
-    (value.data._debug_tpool?.base_address &&
+    (candlesData._debug_tpool?.base_address &&
       (target.chain === "sol"
-        ? value.data._debug_tpool.base_address !== target.address
-        : value.data._debug_tpool.base_address.toLowerCase() !==
+        ? candlesData._debug_tpool.base_address !== target.address
+        : candlesData._debug_tpool.base_address.toLowerCase() !==
           target.address.toLowerCase())) ||
-    value.data.list.length === 0 ||
-    value.data.list.length >= value.limit
+    candlesData.list.length === 0 ||
+    candlesData.list.length >= value.limit
   )
     return null;
 
   const candleSeconds = candleResolutions[value.resolution];
   const completedBefore = Math.floor(observed / candleSeconds) * candleSeconds;
   const candles = new Map<number, number>();
-  for (const candle of value.data.list) {
+  for (const candle of candlesData.list) {
     const timestamp = candle.time / 1000;
     const volume = Number(candle.volume);
     if (
