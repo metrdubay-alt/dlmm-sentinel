@@ -26,8 +26,26 @@ test("GMGN fixture: precise top10, numeric report, history, isolated window and 
       });
       session.fromPartition("persist:sentinel-gmgn").protocol.handle(
         "https",
-        () =>
-          new Response(
+        (request) => {
+          const url = new URL(request.url);
+          if (
+            url.pathname === `/api/v1/token_mcap_candles/sol/${address}` &&
+            url.searchParams.get("limit") === "500"
+          ) {
+            const end = Math.floor(Date.now() / 60_000) * 60_000;
+            return Response.json({
+              code: 0,
+              data: {
+                _debug_tpool: { base_address: address },
+                list: [
+                  { time: end - 120_000, volume: "6950000" },
+                  { time: end - 60_000, volume: "6950000" },
+                  { time: end, volume: "1" },
+                ],
+              },
+            });
+          }
+          return new Response(
             `<!doctype html><html><body><h1>ДЕМО-ДАННЫЕ — локальная fixture</h1><div id="GlobalScrollDomId">
    <a href="https://solscan.io/token/${address}">Token</a>
    <div data-sentry-component="BaseInfoBar"><div><svg data-icon="IconDisplay16pxRegular" width="15" height="15"></svg><div>13</div></div></div>
@@ -42,8 +60,6 @@ test("GMGN fixture: precise top10, numeric report, history, isolated window and 
    <div data-sentry-component="PoolItem"><div>Total liq</div><div>$50K(100 BP)</div></div>
    <div class="bg-card-100"><span>5m</span><span>+1%</span></div>
    <div><span>Vol</span><span>$100,001</span></div>
-   <div class="measure">49 bars · Vol $13.9M</div>
-   <div data-sentinel-full-range="true" data-first-completed-epoch="1760485200" data-latest-completed-epoch="1760488800" data-candle-seconds="300"></div>
    <div id="test-panel-holders"><div>
     <div data-testid="table-cell-holder"><a href="/sol/address/HRo7TZ1gDNhjTfoubRmFpyfZreGxqC1Sjet6w8TkD3R4">HRo7...D3R4</a><span data-testid="user-tag-bundler"></span></div>
     <div data-testid="table-cell-unrealized">+$12,000<br>+1200.25%</div>
@@ -53,7 +69,8 @@ test("GMGN fixture: precise top10, numeric report, history, isolated window and 
    </div></div>
    </div><div role="tooltip">Bundlers hold 19.97% ATH hold 19.97%</div><div role="tooltip" style="display:none">Bundlers hold 60% ATH hold 60%</div></body></html>`,
             { headers: { "content-type": "text/html" } },
-          ),
+          );
+        },
       );
     }, address);
     const page = await app.firstWindow();

@@ -1,114 +1,162 @@
 import { z } from "zod";
 import type { GmgnSnapshot, GmgnTarget } from "../../shared/analysis/gmgn";
 
-const rawRangeSchema = z
+const candleResolutions = {
+  "1m": 60,
+  "5m": 300,
+  "15m": 900,
+  "1h": 3600,
+  "4h": 14_400,
+  "1d": 86_400,
+} as const;
+type CandleResolution = keyof typeof candleResolutions;
+const maxCandles = 500;
+
+const rawCandleRangeSchema = z
   .object({
     url: z.string().url().max(2048),
     tokenAddress: z.string().max(100),
-    fullRange: z.literal(true),
-    firstCompletedEpochSeconds: z.number().int().nonnegative(),
-    latestCompletedEpochSeconds: z.number().int().nonnegative(),
-    candleSeconds: z.number().int().positive().max(86400),
-    volumeText: z.string().max(80),
+    resolution: z.enum(["1m", "5m", "15m", "1h", "4h", "1d"]),
+    limit: z.literal(maxCandles),
+    data: z
+      .object({
+        _debug_tpool: z.object({ base_address: z.string().max(100) }).nullish(),
+        list: z
+          .array(
+            z.object({
+              time: z.number().int().positive(),
+              volume: z.union([
+                z.number().finite(),
+                z.string().regex(/^\d+(?:\.\d+)?$/),
+              ]),
+            }),
+          )
+          .max(maxCandles),
+      }),
   })
   .strict();
 
-const money = (value: string) => {
-  const match =
-    /^\s*\$?((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)([KMB])?\s*$/.exec(value);
-  if (!match) return null;
-  const parsed =
-    Number(match[1].replaceAll(",", "")) *
-    (match[2]
-      ? ({ K: 1e3, M: 1e6, B: 1e9 } as Record<string, number>)[match[2]]
-      : 1);
-  if (!Number.isFinite(parsed) || parsed < 0) return null;
-  return {
-    display: value.trim(),
-    value: parsed,
-    precision: match[2] ? ("rounded" as const) : ("display" as const),
-  };
-};
+function isCanonicalTokenUrl(
+  urlText: string,
+  tokenAddress: string,
+  target: GmgnTarget,
+) {
+  const expected = `/${target.chain}/token/${target.address}`;
+  try {
+    const url = new URL(urlText);
+    return (
+      url.origin === "https://gmgn.ai" &&
+      !url.username &&
+      !url.password &&
+      (target.chain === "sol"
+        ? url.pathname === expected && tokenAddress === target.address
+        : url.pathname.toLowerCase() === expected.toLowerCase() &&
+          tokenAddress.toLowerCase() === target.address.toLowerCase())
+    );
+  } catch {
+    return false;
+  }
+}
 
-/** A visible GMGN range measurement, not an API estimate. */
-export function parseGmgnAllTimeVolume(
+/**
+ * Reads the same candle feed the GMGN chart uses. A range that fills the
+ * endpoint's limit might omit older history, so it is deliberately rejected.
+ */
+export function parseGmgnAllTimeCandleVolume(
   raw: unknown,
   target: GmgnTarget,
   observedAt: string,
 ): GmgnSnapshot["chartRangeVolume"] | null {
-  const range = rawRangeSchema.safeParse(raw);
+  const parsed = rawCandleRangeSchema.safeParse(raw);
   const observed = Date.parse(observedAt) / 1000;
-  if (!range.success || !Number.isFinite(observed)) return null;
-  const value = range.data;
-  const expected = `/${target.chain}/token/${target.address}`;
-  try {
-    const url = new URL(value.url);
-    if (
-      url.origin !== "https://gmgn.ai" ||
-      url.username ||
-      url.password ||
-      (target.chain === "sol"
-        ? url.pathname !== expected || value.tokenAddress !== target.address
-        : url.pathname.toLowerCase() !== expected.toLowerCase() ||
-          value.tokenAddress.toLowerCase() !== target.address.toLowerCase())
-    )
-      return null;
-  } catch {
-    return null;
-  }
+  if (!parsed.success || !Number.isFinite(observed)) return null;
+  const value = parsed.data;
   if (
-    value.firstCompletedEpochSeconds >= value.latestCompletedEpochSeconds ||
-    value.latestCompletedEpochSeconds + value.candleSeconds > observed
+    !isCanonicalTokenUrl(value.url, value.tokenAddress, target) ||
+    (value.data._debug_tpool?.base_address &&
+      (target.chain === "sol"
+        ? value.data._debug_tpool.base_address !== target.address
+        : value.data._debug_tpool.base_address.toLowerCase() !==
+          target.address.toLowerCase())) ||
+    value.data.list.length === 0 ||
+    value.data.list.length >= value.limit
   )
     return null;
-  const volumeUsd = money(value.volumeText);
-  return volumeUsd
-    ? {
-        source: "GMGN chart",
-        observedAt,
-        firstCompletedEpochSeconds: value.firstCompletedEpochSeconds,
-        latestCompletedEpochSeconds: value.latestCompletedEpochSeconds,
-        candleSeconds: value.candleSeconds,
-        volumeUsd,
-      }
-    : null;
+
+  const candleSeconds = candleResolutions[value.resolution];
+  const completedBefore = Math.floor(observed / candleSeconds) * candleSeconds;
+  const candles = new Map<number, number>();
+  for (const candle of value.data.list) {
+    const timestamp = candle.time / 1000;
+    const volume = Number(candle.volume);
+    if (
+      !Number.isInteger(timestamp) ||
+      timestamp % candleSeconds !== 0 ||
+      !Number.isFinite(volume) ||
+      volume < 0 ||
+      candles.has(timestamp)
+    )
+      return null;
+    if (timestamp >= completedBefore) continue;
+    candles.set(timestamp, volume);
+  }
+  if (candles.size === 0) return null;
+  const firstCompletedEpochSeconds = Math.min(...candles.keys());
+  const latestCompletedEpochSeconds = Math.max(...candles.keys());
+  const total = [...candles.values()].reduce((sum, volume) => sum + volume, 0);
+  if (!Number.isFinite(total) || total < 0) return null;
+  return {
+    source: "GMGN chart",
+    observedAt,
+    firstCompletedEpochSeconds,
+    latestCompletedEpochSeconds,
+    candleSeconds,
+    volumeUsd: {
+      display: `$${total.toLocaleString("en-US", {
+        maximumFractionDigits: 2,
+      })}`,
+      value: total,
+      precision: "display",
+    },
+  };
 }
 
-/**
- * The page exposes range measurements only after the visible chart range tool
- * has selected a completed range. We read that rendered overlay and never
- * synthesize a range from price candles or another token's history.
- */
-export const GMGN_CHART_RANGE_SCRIPT = `(() => {
-  const visible=e=>!!e&&e.getClientRects().length>0&&getComputedStyle(e).visibility==='visible';
-  const text=e=>(e?.innerText||e?.textContent||'').replace(/[\\uE000-\\uF8FF]/g,'').trim();
-  const root=document.querySelector('#GlobalScrollDomId');
-  if(!root) return null;
-  const tokenAddress=location.pathname.split('/').at(-1)||'';
-  const overlays=[...document.querySelectorAll('[data-testid*="range"],[class*="measure" i],[class*="range" i]')].filter(visible);
-  const candidate=overlays.map(text).find(t=>/\\b(?:Vol|Volume|Объём|Объем)\\b/i.test(t)&&/\\bbars?\\b/i.test(t));
-  if(!candidate) return null;
-  const volume=/\\b(?:Vol|Volume|Объём|Объем)\\s*\\$?((?:\\d{1,3}(?:,\\d{3})+|\\d+)(?:\\.\\d+)?[KMB]?)/i.exec(candidate)?.[1]||'';
-  const range=root.querySelector('[data-sentinel-full-range="true"]');
-  const first=Number(range?.getAttribute('data-first-completed-epoch'));
-  const latest=Number(range?.getAttribute('data-latest-completed-epoch'));
-  const candle=Number(range?.getAttribute('data-candle-seconds'));
-  if(!range||!Number.isInteger(first)||!Number.isInteger(latest)||!Number.isInteger(candle)) return null;
-  return {url:location.href,tokenAddress,fullRange:true,firstCompletedEpochSeconds:first,latestCompletedEpochSeconds:latest,candleSeconds:candle,volumeText:volume?('$'+volume):''};
-})()`;
+export function gmgnAllTimeCandlesScript(
+  target: GmgnTarget,
+  resolution: CandleResolution,
+) {
+  return `(async()=>{
+  const path=${JSON.stringify("/api/v1/token_mcap_candles/" + target.chain + "/" + target.address)};
+  const tokenPath=${JSON.stringify("/" + target.chain + "/token/" + target.address)};
+  if(location.origin!=="https://gmgn.ai"||location.pathname!==tokenPath)throw Error('Token changed');
+  const match=performance.getEntriesByType('resource').map(e=>e.name).reverse().find(name=>{try{const u=new URL(name);return u.origin===location.origin&&u.pathname===path}catch{return false}});
+  const url=new URL(match||path,location.origin);
+  for(const key of ['from','to','from_timestamp','to_timestamp','before_timestamp','limit','resolution'])url.searchParams.delete(key);
+  url.searchParams.set('resolution',${JSON.stringify(resolution)});url.searchParams.set('from','0');url.searchParams.set('to',String(Date.now()));url.searchParams.set('limit',${JSON.stringify(maxCandles)});
+  const response=await fetch(url.href,{credentials:'same-origin',cache:'no-store',redirect:'error',signal:AbortSignal.timeout(10000)});
+  if(!response.ok)throw Error('Chart candles unavailable');
+  const data=await response.json();
+  if(location.pathname!==tokenPath)throw Error('Token changed');
+  return {url:location.href,tokenAddress:${JSON.stringify(target.address)},resolution:${JSON.stringify(resolution)},limit:${JSON.stringify(maxCandles)},data};
+ })()`;
+}
 
 export async function readGmgnAllTimeVolume(
   execute: (script: string) => Promise<unknown>,
   target: GmgnTarget,
   observedAt: string,
 ) {
-  try {
-    return parseGmgnAllTimeVolume(
-      await execute(GMGN_CHART_RANGE_SCRIPT),
-      target,
-      observedAt,
-    );
-  } catch {
-    return null;
+  for (const resolution of Object.keys(candleResolutions) as CandleResolution[]) {
+    try {
+      const parsed = parseGmgnAllTimeCandleVolume(
+        await execute(gmgnAllTimeCandlesScript(target, resolution)),
+        target,
+        observedAt,
+      );
+      if (parsed) return parsed;
+    } catch {
+      // A missing granular range must not prevent a wider GMGN candle range.
+    }
   }
+  return null;
 }

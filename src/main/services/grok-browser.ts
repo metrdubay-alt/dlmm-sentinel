@@ -10,6 +10,10 @@ import {
   type GrokContext,
 } from "../../shared/analysis/grok";
 import type { WorkspaceConfig } from "../../shared/analysis/workspace";
+import {
+  GROK_RESPONSE_TIMEOUT_MS,
+  grokResponseDeadline,
+} from "../../shared/analysis/grok-timeout";
 // Only the public Grok DOM. No page globals, cookies, tokens or private endpoints.
 export const GROK_STATE_SCRIPT = String.raw`(() => {
  const visible=e=>!!e&&e.getClientRects().length>0&&getComputedStyle(e).visibility!=='hidden';
@@ -202,8 +206,8 @@ export class GrokBrowser extends XBrowser {
           "Кнопка отправки Grok недоступна. Запрос не отправлен; повторите после загрузки Grok.",
         );
       this.state.phase = "waiting";
-      const deadline = Date.now() + 240000,
-        submittedAt = Date.now();
+      const submittedAt = Date.now(),
+        deadline = grokResponseDeadline(submittedAt);
       let last = "",
         stableSince = 0,
         conversation: string | null = null;
@@ -262,7 +266,7 @@ export class GrokBrowser extends XBrowser {
         }
       }
       throw new Error(
-        "Grok не завершил ответ за 4 минуты. Прежний результат сохранён; Grok можно открыть кнопкой входа.",
+        `Grok не завершил ответ за ${GROK_RESPONSE_TIMEOUT_MS / 60000} минут. Прежний результат сохранён; Grok можно открыть кнопкой входа.`,
       );
     } catch (error) {
       const message =
