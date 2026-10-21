@@ -7,9 +7,14 @@ import {
   parseXFollowingOverlapPayload,
   type XFollowingOverlap,
 } from "../../shared/analysis/x-following-overlap";
-export const X_READ_SCRIPT = `(() => {
+export const X_READ_SCRIPT = `(() => new Promise((resolve,reject) => {
+ const deadline=Date.now()+8000;
+ const read=()=>{
  const root=document.querySelector('[data-testid="primaryColumn"]')||document.querySelector('main');
- if(!root)throw new Error('X ещё не загрузился.');
+ if(!root){
+  if(Date.now()>=deadline){reject(new Error('X ещё не загрузился.'));return;}
+  setTimeout(read,100);return;
+ }
  const text=e=>(e?.innerText||'').trim();
  const identity=text(root.querySelector('[data-testid="UserName"]'));
  const handle=location.pathname.split('/')[1];
@@ -24,9 +29,11 @@ export const X_READ_SCRIPT = `(() => {
   return [{url:link.href,author,text:text(article.querySelector('[data-testid="tweetText"]')).slice(0,12000),publishedAt:time.getAttribute('datetime')}];
  });
  const body=text(root);const unavailable=['This account doesn’t exist',"This account doesn't exist",'Account suspended','Такой учетной записи не существует','Такой учётной записи не существует','Учётная запись заблокирована'].find(s=>body.includes(s))||'';
- return {url:location.href,identity,bio:text(root.querySelector('[data-testid="UserDescription"]')),website:text(header?.querySelector('a[href^="https://t.co/"]')),
- joined:text(header?.querySelector('[data-testid="UserJoinDate"]')),followers:count('/verified_followers')||count('/followers'),following:count('/following'),posts,unavailableText:unavailable};
-})()`;
+ resolve({url:location.href,identity,bio:text(root.querySelector('[data-testid="UserDescription"]')),website:text(header?.querySelector('a[href^="https://t.co/"]')),
+ joined:text(header?.querySelector('[data-testid="UserJoinDate"]')),followers:count('/verified_followers')||count('/followers'),following:count('/following'),posts,unavailableText:unavailable});
+ };
+ read();
+}))()`;
 
 const X_VIEWER_SCRIPT = `(() => new Promise(resolve => {
  const visible=e=>!!e&&e.getClientRects().length>0&&getComputedStyle(e).visibility!=='hidden';
