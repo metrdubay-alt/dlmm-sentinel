@@ -5,6 +5,7 @@ import { allowedX, parseXProfile } from "../../shared/analysis/x-browser";
 import { moniHandleSchema } from "../../shared/analysis/moni";
 import {
   parseXFollowingOverlapPayload,
+  requiresXProfileConfirmationFallback,
   type XFollowingOverlap,
 } from "../../shared/analysis/x-following-overlap";
 export const X_READ_SCRIPT = `(() => new Promise((resolve,reject) => {
@@ -234,14 +235,28 @@ export class XBrowser {
       await this.openUrl(`https://x.com/${target}`, parent, true);
       overlapRaw = await this.window!.webContents.executeJavaScript(X_OVERLAP_SCRIPT);
     }
-    const overlap = overlapRaw as XOverlapPage;
+    let overlap = overlapRaw as XOverlapPage;
     if (this.window?.isDestroyed())
       throw new Error("Окно X было закрыто во время чтения.");
-    return parseXFollowingOverlapPayload(
+    let parsed = parseXFollowingOverlapPayload(
       { ...overlap, followingTotal: own.following ?? "" },
       target,
       observedAt,
     );
+    if (requiresXProfileConfirmationFallback(parsed)) {
+      await this.openUrl(`https://x.com/${target}`, parent, true);
+      overlap = (await this.window!.webContents.executeJavaScript(
+        X_OVERLAP_SCRIPT,
+      )) as XOverlapPage;
+      if (this.window?.isDestroyed())
+        throw new Error("Окно X было закрыто во время чтения.");
+      parsed = parseXFollowingOverlapPayload(
+        { ...overlap, followingTotal: own.following ?? "" },
+        target,
+        observedAt,
+      );
+    }
+    return parsed;
   }
   close() {
     this.window?.destroy();

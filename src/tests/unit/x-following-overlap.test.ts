@@ -1,6 +1,7 @@
 import { expect, it } from "vitest";
 import {
   parseXFollowingOverlapPayload,
+  requiresXProfileConfirmationFallback,
   xFollowingOverlapSchema,
 } from "../../shared/analysis/x-following-overlap";
 
@@ -129,4 +130,20 @@ it("does not count a signed-out page or a page for another profile", () => {
       at,
     ),
   ).toMatchObject({ state: "unavailable" });
+});
+
+it("retries through the profile when X followers omits the profile identity", () => {
+  const missingIdentity = parseXFollowingOverlapPayload(
+    { ...completePayload, identity: "", title: "X" },
+    "example",
+    at,
+  );
+  expect(requiresXProfileConfirmationFallback(missingIdentity)).toBe(true);
+  expect(
+    requiresXProfileConfirmationFallback({
+      state: "unavailable",
+      observedAt: at,
+      message: "Войдите в X в приложении.",
+    }),
+  ).toBe(false);
 });

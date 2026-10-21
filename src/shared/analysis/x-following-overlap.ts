@@ -41,6 +41,15 @@ export const xFollowingOverlapSchema = z.union([
 ]);
 export type XFollowingOverlap = z.infer<typeof xFollowingOverlapSchema>;
 
+export function requiresXProfileConfirmationFallback(
+  overlap: XFollowingOverlap,
+) {
+  return (
+    overlap.state === "unavailable" &&
+    overlap.message === "Профиль токена в X не подтверждён."
+  );
+}
+
 const rawPayloadSchema = z
   .object({
     url: z.string().max(2048),

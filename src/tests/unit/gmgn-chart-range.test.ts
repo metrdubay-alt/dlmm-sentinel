@@ -1,5 +1,6 @@
 import { expect, it } from "vitest";
 import {
+  gmgnAllTimeCandlesScript,
   gmgnSessionQueryParameters,
   parseGmgnAllTimeCandleVolume,
   readGmgnAllTimeVolume,
@@ -25,6 +26,17 @@ it("reuses GMGN's session query parameters from a same-origin API request", () =
     app_lang: "ru",
     os: "windows",
   });
+});
+
+it("prefers session parameters captured during GMGN page loading", () => {
+  const script = gmgnAllTimeCandlesScript(target, "1h", {
+    device_id: "captured-device",
+    fp_did: "captured-fingerprint",
+  });
+  expect(script).toContain(
+    'const capturedSessionParameters={"device_id":"captured-device","fp_did":"captured-fingerprint"};',
+  );
+  expect(script).toContain("capturedSessionParameters[key]||");
 });
 it("sums only completed, canonical GMGN candles for the all-time volume", () => {
   const observed = "2025-10-15T00:03:00.000Z";

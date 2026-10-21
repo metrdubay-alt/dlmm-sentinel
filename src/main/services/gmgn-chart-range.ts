@@ -160,6 +160,7 @@ export function parseGmgnAllTimeCandleVolume(
 export function gmgnAllTimeCandlesScript(
   target: GmgnTarget,
   resolution: CandleResolution,
+  sessionParameters: Partial<Record<GmgnSessionParameterName, string>> = {},
 ) {
   return `(async()=>{
   const path=${JSON.stringify("/api/v1/token_mcap_candles/" + target.chain + "/" + target.address)};
@@ -169,9 +170,10 @@ export function gmgnAllTimeCandlesScript(
   const match=[...resourceNames].reverse().find(name=>{try{const u=new URL(name);return u.origin===location.origin&&u.pathname===path}catch{return false}});
   const url=new URL(match||path,location.origin);
   const sessionKeys=${JSON.stringify(gmgnSessionParameterNames)};
+  const capturedSessionParameters=${JSON.stringify(sessionParameters)};
   const sessionSource=[...resourceNames].reverse().map(name=>{try{return new URL(name)}catch{return null}}).find(u=>u&&u.origin===location.origin&&/^\\/(?:api|vas)\\//.test(u.pathname)&&sessionKeys.some(key=>u.searchParams.has(key)));
   for(const key of ['from','to','from_timestamp','to_timestamp','before_timestamp','limit','resolution',...sessionKeys])url.searchParams.delete(key);
-  if(sessionSource)for(const key of sessionKeys){const value=sessionSource.searchParams.get(key);if(value)url.searchParams.set(key,value)}
+  for(const key of sessionKeys){const value=capturedSessionParameters[key]||sessionSource?.searchParams.get(key);if(value)url.searchParams.set(key,value)}
   url.searchParams.set('resolution',${JSON.stringify(resolution)});url.searchParams.set('from','0');url.searchParams.set('to',String(Date.now()));url.searchParams.set('limit',${JSON.stringify(maxCandles)});
   const response=await fetch(url.href,{credentials:'same-origin',cache:'no-store',redirect:'error',headers:{Accept:'application/json'},signal:AbortSignal.timeout(10000)});
   if(!response.ok)throw Error('Chart candles unavailable');
@@ -185,11 +187,14 @@ export async function readGmgnAllTimeVolume(
   execute: (script: string) => Promise<unknown>,
   target: GmgnTarget,
   observedAt: string,
+  sessionParameters: Partial<Record<GmgnSessionParameterName, string>> = {},
 ) {
   for (const resolution of Object.keys(candleResolutions) as CandleResolution[]) {
     try {
       const parsed = parseGmgnAllTimeCandleVolume(
-        await execute(gmgnAllTimeCandlesScript(target, resolution)),
+        await execute(
+          gmgnAllTimeCandlesScript(target, resolution, sessionParameters),
+        ),
         target,
         observedAt,
       );

@@ -3,7 +3,10 @@ import { GMGN_READ_SCRIPT } from "./gmgn-dom";
 import { readConnection } from "./source-connection";
 import { loadSourcePage } from "./source-navigation";
 import { enrichFees } from "./fee-rates-source";
-import { readGmgnAllTimeVolume } from "./gmgn-chart-range";
+import {
+  gmgnSessionQueryParameters,
+  readGmgnAllTimeVolume,
+} from "./gmgn-chart-range";
 import { BrowserWindow, session } from "electron";
 import {
   gmgnTargetSchema,
@@ -21,6 +24,7 @@ function allowed(url: string) {
 }
 export class GmgnBrowser {
   private window: BrowserWindow | null = null;
+  private sessionQueryParameters: Record<string, string> = {};
   connection() {
     return readConnection(this.window, "gmgn");
   }
@@ -81,6 +85,18 @@ export class GmgnBrowser {
         isolated.setPermissionRequestHandler((_wc, _p, cb) => cb(false));
         isolated.setPermissionCheckHandler(() => false);
         isolated.on("will-download", (event) => event.preventDefault());
+        isolated.webRequest.onBeforeRequest(
+          { urls: ["https://gmgn.ai/*"] },
+          (details, callback) => {
+            const parameters = gmgnSessionQueryParameters([details.url]);
+            if (Object.keys(parameters).length)
+              this.sessionQueryParameters = {
+                ...this.sessionQueryParameters,
+                ...parameters,
+              };
+            callback({});
+          },
+        );
         this.initialized = true;
       }
       const win = new BrowserWindow({
@@ -186,6 +202,7 @@ export class GmgnBrowser {
       (script) => win.webContents.executeJavaScript(script),
       target,
       snapshot.observedAt,
+      this.sessionQueryParameters,
     );
     if (chartRange) snapshot.chartRangeVolume = chartRange;
     return enrichFees(snapshot);
@@ -197,6 +214,7 @@ export class GmgnBrowser {
   }
   async clear() {
     this.close();
+    this.sessionQueryParameters = {};
     await session.fromPartition("persist:sentinel-gmgn").clearStorageData();
   }
 }
