@@ -1,11 +1,31 @@
 import { expect, it } from "vitest";
 import {
+  gmgnSessionQueryParameters,
   parseGmgnAllTimeCandleVolume,
   readGmgnAllTimeVolume,
 } from "../../main/services/gmgn-chart-range";
 
 const address = "F9PvspnWkP3hSLaYxQb2LvFRBgyrLVhdUJ5q39tZZPbC";
 const target = { chain: "sol" as const, address };
+
+it("reuses GMGN's session query parameters from a same-origin API request", () => {
+  expect(
+    gmgnSessionQueryParameters([
+      "https://example.test/api/v1/token_holders/sol/x?device_id=wrong",
+      "https://gmgn.ai/vas/api/v1/token_holders/sol/x?device_id=device&fp_did=fingerprint&client_id=web&from_app=gmgn&app_ver=1.2.3&tz_name=Europe%2FMoscow&tz_offset=180&app_lang=ru&os=windows&ignored=secret",
+    ]),
+  ).toEqual({
+    device_id: "device",
+    fp_did: "fingerprint",
+    client_id: "web",
+    from_app: "gmgn",
+    app_ver: "1.2.3",
+    tz_name: "Europe/Moscow",
+    tz_offset: "180",
+    app_lang: "ru",
+    os: "windows",
+  });
+});
 it("sums only completed, canonical GMGN candles for the all-time volume", () => {
   const observed = "2025-10-15T00:03:00.000Z";
   const completed = Math.floor(Date.parse(observed) / 1000 / 60) * 60;

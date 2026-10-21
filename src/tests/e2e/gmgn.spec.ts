@@ -28,9 +28,12 @@ test("GMGN fixture: precise top10, numeric report, history, isolated window and 
         "https",
         (request) => {
           const url = new URL(request.url);
+          if (url.pathname === "/vas/api/v1/token_holders/sol/fixture")
+            return Response.json({ ok: true });
           if (
             url.pathname === `/api/v1/token_mcap_candles/sol/${address}` &&
-            url.searchParams.get("limit") === "500"
+            url.searchParams.get("limit") === "500" &&
+            url.searchParams.get("device_id") === "fixture-device"
           ) {
             const end = Math.floor(Date.now() / 60_000) * 60_000;
             return Response.json({
@@ -67,7 +70,7 @@ test("GMGN fixture: precise top10, numeric report, history, isolated window and 
     <div data-testid="table-cell-owned">$15,000<br>1.5%</div>
     <div data-testid="table-cell-source"><a href="/sol/address/${address}">Funding</a></div>
    </div></div>
-   </div><div role="tooltip">Bundlers hold 19.97% ATH hold 19.97%</div><div role="tooltip" style="display:none">Bundlers hold 60% ATH hold 60%</div></body></html>`,
+           </div><div role="tooltip">Bundlers hold 19.97% ATH hold 19.97%</div><div role="tooltip" style="display:none">Bundlers hold 60% ATH hold 60%</div><script>fetch('/vas/api/v1/token_holders/sol/fixture?device_id=fixture-device&fp_did=fixture-fingerprint&client_id=fixture-client&from_app=fixture&app_ver=1.0.0&tz_name=Europe%2FMoscow&tz_offset=180&app_lang=ru&os=windows')</script></body></html>`,
             { headers: { "content-type": "text/html" } },
           );
         },

@@ -11,6 +11,42 @@ const candleResolutions = {
 } as const;
 type CandleResolution = keyof typeof candleResolutions;
 const maxCandles = 500;
+const gmgnSessionParameterNames = [
+  "device_id",
+  "fp_did",
+  "client_id",
+  "from_app",
+  "app_ver",
+  "tz_name",
+  "tz_offset",
+  "app_lang",
+  "os",
+] as const;
+type GmgnSessionParameterName = (typeof gmgnSessionParameterNames)[number];
+
+export function gmgnSessionQueryParameters(resourceNames: string[]) {
+  for (const resourceName of [...resourceNames].reverse()) {
+    try {
+      const url = new URL(resourceName);
+      if (
+        url.origin !== "https://gmgn.ai" ||
+        url.username ||
+        url.password ||
+        !/^\/(?:api|vas)\//.test(url.pathname)
+      )
+        continue;
+      const parameters: Partial<Record<GmgnSessionParameterName, string>> = {};
+      for (const name of gmgnSessionParameterNames) {
+        const value = url.searchParams.get(name);
+        if (value) parameters[name] = value;
+      }
+      if (Object.keys(parameters).length) return parameters;
+    } catch {
+      // Browser resource entries may contain non-URL names.
+    }
+  }
+  return {};
+}
 
 const rawCandleRangeSchema = z
   .object({
@@ -129,11 +165,15 @@ export function gmgnAllTimeCandlesScript(
   const path=${JSON.stringify("/api/v1/token_mcap_candles/" + target.chain + "/" + target.address)};
   const tokenPath=${JSON.stringify("/" + target.chain + "/token/" + target.address)};
   if(location.origin!=="https://gmgn.ai"||location.pathname!==tokenPath)throw Error('Token changed');
-  const match=performance.getEntriesByType('resource').map(e=>e.name).reverse().find(name=>{try{const u=new URL(name);return u.origin===location.origin&&u.pathname===path}catch{return false}});
+  const resourceNames=performance.getEntriesByType('resource').map(e=>e.name);
+  const match=[...resourceNames].reverse().find(name=>{try{const u=new URL(name);return u.origin===location.origin&&u.pathname===path}catch{return false}});
   const url=new URL(match||path,location.origin);
-  for(const key of ['from','to','from_timestamp','to_timestamp','before_timestamp','limit','resolution'])url.searchParams.delete(key);
+  const sessionKeys=${JSON.stringify(gmgnSessionParameterNames)};
+  const sessionSource=[...resourceNames].reverse().map(name=>{try{return new URL(name)}catch{return null}}).find(u=>u&&u.origin===location.origin&&/^\\/(?:api|vas)\\//.test(u.pathname)&&sessionKeys.some(key=>u.searchParams.has(key)));
+  for(const key of ['from','to','from_timestamp','to_timestamp','before_timestamp','limit','resolution',...sessionKeys])url.searchParams.delete(key);
+  if(sessionSource)for(const key of sessionKeys){const value=sessionSource.searchParams.get(key);if(value)url.searchParams.set(key,value)}
   url.searchParams.set('resolution',${JSON.stringify(resolution)});url.searchParams.set('from','0');url.searchParams.set('to',String(Date.now()));url.searchParams.set('limit',${JSON.stringify(maxCandles)});
-  const response=await fetch(url.href,{credentials:'same-origin',cache:'no-store',redirect:'error',signal:AbortSignal.timeout(10000)});
+  const response=await fetch(url.href,{credentials:'same-origin',cache:'no-store',redirect:'error',headers:{Accept:'application/json'},signal:AbortSignal.timeout(10000)});
   if(!response.ok)throw Error('Chart candles unavailable');
   const data=await response.json();
   if(location.pathname!==tokenPath)throw Error('Token changed');
