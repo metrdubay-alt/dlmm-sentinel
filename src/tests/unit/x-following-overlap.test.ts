@@ -1,5 +1,6 @@
 import { expect, it } from "vitest";
 import {
+  parseOwnFollowingOverlapPayload,
   parseXFollowingOverlapPayload,
   requiresXProfileConfirmationFallback,
   xFollowingOverlapSchema,
@@ -112,6 +113,31 @@ it("accepts X's explicit statement that nobody you follow follows the token", ()
     state: "complete",
     followingTotal: 210,
     matchedFollowing: 0,
+  });
+});
+
+it("counts a verified token handle from the viewer's complete following list", () => {
+  expect(
+    parseOwnFollowingOverlapPayload(
+      {
+        url: "https://x.com/metralone1972/following",
+        signedOut: false,
+        followingTotal: "22 Following",
+        handles: [
+          "lastagencymeme",
+          ...Array.from({ length: 21 }, (_, index) => `follow${index}`),
+        ],
+        complete: true,
+      },
+      "metralone1972",
+      "lastagencymeme",
+      at,
+    ),
+  ).toMatchObject({
+    state: "complete",
+    targetHandle: "lastagencymeme",
+    followingTotal: 22,
+    matchedFollowing: 1,
   });
 });
 

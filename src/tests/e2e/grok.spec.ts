@@ -24,7 +24,9 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
     chain: "bsc" as const,
     address: "0xcafdbce93477261db8250e42bdae6e66733f9e20",
   };
-  const install = async (mode: "answer" | "limit" | "wait" | "disabled") =>
+  const install = async (
+    mode: "answer" | "limit" | "wait" | "disabled" | "fallback",
+  ) =>
     app.evaluate(async ({ session }, mode) => {
       const s = session.fromPartition("persist:sentinel-x");
       try {
@@ -32,29 +34,38 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
       } catch {
         /* No previous fixture handler on first run. */
       }
-      s.protocol.handle(
-        "https",
-        (request) => {
-          const pathname = new URL(request.url).pathname;
-          if (pathname === "/home")
+      s.protocol.handle("https", (request) => {
+        const pathname = new URL(request.url).pathname;
+        if (pathname === "/home")
+          return new Response(
+            '<main><p>Log in to see more public posts</p><script>setTimeout(()=>{const button=document.createElement("button");button.dataset.testid="SideNav_AccountSwitcher_Button";button.textContent="Plaskeev";const profile=document.createElement("a");profile.dataset.testid="AppTabBar_Profile_Link";profile.href="/plaskeev";profile.textContent="Profile";document.querySelector("main").append(button,profile)},350)</script></main>',
+            { headers: { "content-type": "text/html; charset=utf-8" } },
+          );
+        if (pathname === "/plaskeev")
+          return new Response(
+            `<main data-testid="primaryColumn"><div data-testid="UserName">Plaskeev @plaskeev</div><a href="/plaskeev/following">${mode === "fallback" ? 2 : 210} Following</a></main>`,
+            { headers: { "content-type": "text/html; charset=utf-8" } },
+          );
+        if (pathname === "/plaskeev/following")
+          return new Response(
+            '<main data-testid="primaryColumn"><div data-testid="UserCell"><a href="/alice">Alice</a></div><div data-testid="UserCell"><a href="/bob">Bob</a></div></main>',
+            { headers: { "content-type": "text/html; charset=utf-8" } },
+          );
+        if (pathname === "/example/followers")
+          if (mode === "fallback")
             return new Response(
-              '<main><p>Log in to see more public posts</p><script>setTimeout(()=>{const button=document.createElement("button");button.dataset.testid="SideNav_AccountSwitcher_Button";button.textContent="Plaskeev";const profile=document.createElement("a");profile.dataset.testid="AppTabBar_Profile_Link";profile.href="/plaskeev";profile.textContent="Profile";document.querySelector("main").append(button,profile)},350)</script></main>',
+              '<main data-testid="primaryColumn"><script>history.replaceState({}, "", "/unexpected")</script></main>',
               { headers: { "content-type": "text/html; charset=utf-8" } },
             );
-          if (pathname === "/plaskeev")
-            return new Response(
-              '<main data-testid="primaryColumn"><div data-testid="UserName">Plaskeev @plaskeev</div><a href="/plaskeev/following">210 Following</a></main>',
-              { headers: { "content-type": "text/html; charset=utf-8" } },
-            );
-          if (pathname === "/example/followers")
+          else
             return new Response(
               '<main data-testid="primaryColumn"><div data-testid="UserName">Example @example</div><div data-testid="UserCell"><a href="/alice">Alice</a><button>Following</button></div><div data-testid="UserCell"><a href="/bob">Bob</a><button>Following</button></div><p>No more results</p></main>',
               { headers: { "content-type": "text/html; charset=utf-8" } },
             );
-          return new Response(
-            mode === "limit"
-              ? '<main><div role="alert">You have reached your usage limit. Try again later.</div></main>'
-              : `<main><textarea disabled readonly placeholder="Ask Grok (AI agent)"></textarea><button aria-label="Спросить" disabled><svg><path d="M12 3.59l7.457 7.45-1.414 1.42L13 7.41V21h-2V7.41l-5.043 5.05-1.414-1.42L12 3.59z"></path></svg></button><div id="chat"></div><script>
+        return new Response(
+          mode === "limit"
+            ? '<main><div role="alert">You have reached your usage limit. Try again later.</div></main>'
+            : `<main><textarea disabled readonly placeholder="Ask Grok (AI agent)"></textarea><button aria-label="Спросить" disabled><svg><path d="M12 3.59l7.457 7.45-1.414 1.42L13 7.41V21h-2V7.41l-5.043 5.05-1.414-1.42L12 3.59z"></path></svg></button><div id="chat"></div><script>
   setTimeout(()=>{document.querySelector('textarea').disabled=false},1800);
   setTimeout(()=>{document.querySelector('textarea').readOnly=false},2400);
   document.querySelector('textarea').addEventListener('input',()=>{if(${JSON.stringify(mode)}==='disabled')return;setTimeout(()=>{document.querySelector('button').disabled=false},1200)});
@@ -65,10 +76,9 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
   const answer={...sample,recentActivity:{...sample.recentActivity,summary:'ДЕМО: найдено важное сообщение команды.',events:[{at:sample.recentActivity.windowEnd,text:'ДЕМО: @dev объявил запуск продукта',significance:'Назван конкретный срок запуска.',sources:['https://x.com/dev/status/456']}]},feeRecipientSupport:{summary:'ДЕМО: @recipient — 4 собственных поста за 7 дней; последний 30 сентября. Поддержка продолжается.',sources:['https://x.com/recipient/status/123']},narrativeDetails:{essence:'ДЕМО: идея и механизм комиссий',adoption:'ДЕМО: два независимых автора и проекты',momentum:'ДЕМО: интерес растёт за 7 дней'},discoveredProfile:{handle:'example',sources:['https://x.com/example/status/123']},tokenSymbol:'',description:'ДЕМО-ДАННЫЕ: найден независимый интерес',greenFlags:[{text:'ДЕМО: команда публикует обновления',sources:['https://x.com/example/status/123']}],score:62,scoreReason:'Оценка Grok по тестовым источникам',narrative:'stable',sources:['https://x.com/example/status/123'],redFlags:[{text:'ДЕМО: профиль не подтвержден',sources:[]},{text:'3% transfer tax на все трансферы $WOW',sources:['https://example.com/fee']},{text:'ДЕМО: повторяющиеся промо-посты',sources:['https://x.com/example/status/123']}]};
   const block=document.createElement('div');const content=document.createElement('pre');content.textContent=JSON.stringify(answer);content.innerHTML=content.innerHTML.replace('независимый интерес','независимый <span style="display:block">интерес</span>');block.append(content);const actions=document.createElement('div');actions.innerHTML='<button aria-label="Copy text">Copy</button><button aria-label="Regenerate">Regenerate</button>';block.append(actions);document.querySelector('#chat').append(block);
   });</script></main>`,
-            { headers: { "content-type": "text/html; charset=utf-8" } },
-          );
-        },
-      );
+          { headers: { "content-type": "text/html; charset=utf-8" } },
+        );
+      });
     }, mode);
   try {
     const page = await app.firstWindow();
@@ -193,6 +203,16 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
       path: "test-results/grok-result.png",
       fullPage: true,
     });
+    await install("fallback");
+    const fallbackReport = await page.evaluate(
+      (t) => window.sentinel.grokRun(t),
+      target,
+    );
+    expect(fallbackReport.grok?.followingOverlap).toMatchObject({
+      state: "complete",
+      followingTotal: 2,
+      matchedFollowing: 0,
+    });
     await page.evaluate(() => window.sentinel.sourceLogin("grok"));
     expect(
       await app.evaluate(({ BrowserWindow }) =>
@@ -208,7 +228,7 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
     expect(
       (await page.evaluate((t) => window.sentinel.workspaceReport(t), target))
         .grok?.requestId,
-    ).toBe(report.grok?.requestId);
+    ).toBe(fallbackReport.grok?.requestId);
     expect(
       await app.evaluate(({ BrowserWindow }) =>
         BrowserWindow.getAllWindows()
@@ -249,7 +269,7 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
     expect(
       (await page.evaluate((t) => window.sentinel.workspaceReport(t), target))
         .grok?.requestId,
-    ).toBe(report.grok?.requestId);
+    ).toBe(fallbackReport.grok?.requestId);
   } finally {
     await app.close();
     await rm(dir, { recursive: true, force: true });

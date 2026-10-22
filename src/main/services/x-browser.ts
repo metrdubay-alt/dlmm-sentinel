@@ -5,6 +5,7 @@ import { allowedX, parseXProfile } from "../../shared/analysis/x-browser";
 import { moniHandleSchema } from "../../shared/analysis/moni";
 import {
   parseXFollowingOverlapPayload,
+  parseOwnFollowingOverlapPayload,
   requiresXProfileConfirmationFallback,
   type XFollowingOverlap,
 } from "../../shared/analysis/x-following-overlap";
@@ -92,6 +93,33 @@ const X_OVERLAP_SCRIPT = `(() => new Promise(resolve => {
    return;
   }
   setTimeout(step,350);
+ };
+ step();
+}))()`;
+
+export const X_OWN_FOLLOWING_SCRIPT = `(() => new Promise(resolve => {
+ const root=document.querySelector('[data-testid="primaryColumn"]')||document.querySelector('main')||document.body;
+ const text=e=>(e?.innerText||'').trim();
+ const followingText=__SENTINEL_FOLLOWING_TOTAL__;
+ const expectedMatch=/^(\\d{1,3}(?:[, \\u00a0\\u202f]\\d{3})+|\\d+)\\s+/.exec(followingText);
+ const expected=expectedMatch?Number(expectedMatch[1].replace(/[, \\u00a0\\u202f]/g,'')):null;
+ const signedOut=/\b(Log in|Sign in|Войти|Зарегистрироваться)\b/i.test(text(root));
+ const handles=new Set();let unchanged=0;let previousSize=0;let iterations=0;
+ const record=()=>{
+  for(const row of root.querySelectorAll('[data-testid="UserCell"]')){
+   const profile=[...row.querySelectorAll('a[href]')].map(a=>a.getAttribute('href')||'').find(h=>/^\\/[a-z0-9_]{1,15}$/i.test(h));
+   if(profile)handles.add(profile.slice(1).toLowerCase());
+  }
+ };
+ const finish=complete=>resolve({url:location.href,signedOut,followingTotal:followingText,handles:[...handles],complete});
+ const step=()=>{
+  record();iterations+=1;
+  if(expected!==null&&handles.size>=expected){finish(true);return;}
+  const atBottom=window.scrollY+window.innerHeight>=document.documentElement.scrollHeight-4;
+  if(handles.size===previousSize&&atBottom)unchanged+=1;else unchanged=0;
+  previousSize=handles.size;
+  if(unchanged>=3||iterations>=60){finish(false);return;}
+  window.scrollTo(0,document.documentElement.scrollHeight);setTimeout(step,300);
  };
  step();
 }))()`;
@@ -201,9 +229,8 @@ export class XBrowser {
   ): Promise<XFollowingOverlap> {
     const target = moniHandleSchema.parse(requested);
     await this.openUrl("https://x.com/home", parent, true);
-    const viewer: unknown = await this.window!.webContents.executeJavaScript(
-      X_VIEWER_SCRIPT,
-    );
+    const viewer: unknown =
+      await this.window!.webContents.executeJavaScript(X_VIEWER_SCRIPT);
     const current = viewer as XViewer;
     const observedAt = new Date().toISOString();
     if (current.signedOut || !current.handle)
@@ -221,19 +248,20 @@ export class XBrowser {
         observedAt,
       );
     await this.openUrl(`https://x.com/${current.handle}`, parent, true);
-    const ownRaw: unknown = await this.window!.webContents.executeJavaScript(
-      X_READ_SCRIPT,
-    );
+    const ownRaw: unknown =
+      await this.window!.webContents.executeJavaScript(X_READ_SCRIPT);
     const own = ownRaw as { following?: string };
     let overlapRaw: unknown;
     try {
       await this.openUrl(`https://x.com/${target}/followers`, parent, true);
-      overlapRaw = await this.window!.webContents.executeJavaScript(X_OVERLAP_SCRIPT);
+      overlapRaw =
+        await this.window!.webContents.executeJavaScript(X_OVERLAP_SCRIPT);
     } catch {
       // X sometimes blocks the followers route while the public profile still states
       // that none of the signed-in user's follows follows this account.
       await this.openUrl(`https://x.com/${target}`, parent, true);
-      overlapRaw = await this.window!.webContents.executeJavaScript(X_OVERLAP_SCRIPT);
+      overlapRaw =
+        await this.window!.webContents.executeJavaScript(X_OVERLAP_SCRIPT);
     }
     let overlap = overlapRaw as XOverlapPage;
     if (this.window?.isDestroyed())
@@ -255,6 +283,33 @@ export class XBrowser {
         target,
         observedAt,
       );
+    }
+    // Fallback to the viewer's own following list only when X refused to
+    // render a usable token-followers page.  It proves zero without guessing.
+    if (
+      parsed.state !== "complete" &&
+      parsed.message !== "Войдите в X в приложении."
+    ) {
+      await this.openUrl(
+        `https://x.com/${current.handle}/following`,
+        parent,
+        true,
+      );
+      const ownFollowingScript = X_OWN_FOLLOWING_SCRIPT.replace(
+        "__SENTINEL_FOLLOWING_TOTAL__",
+        JSON.stringify(own.following ?? ""),
+      );
+      const ownFollowingRaw: unknown =
+        await this.window!.webContents.executeJavaScript(ownFollowingScript);
+      if (this.window?.isDestroyed())
+        throw new Error("Окно X было закрыто во время чтения.");
+      const ownFollowing = parseOwnFollowingOverlapPayload(
+        { ...(ownFollowingRaw as object), followingTotal: own.following ?? "" },
+        current.handle,
+        target,
+        observedAt,
+      );
+      if (ownFollowing.state === "complete") return ownFollowing;
     }
     return parsed;
   }
