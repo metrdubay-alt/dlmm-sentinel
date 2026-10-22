@@ -28,6 +28,11 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
     mode: "answer" | "limit" | "wait" | "disabled" | "fallback",
   ) =>
     app.evaluate(async ({ session }, mode) => {
+      (
+        globalThis as typeof globalThis & {
+          sentinelTokenFollowersReads?: number;
+        }
+      ).sentinelTokenFollowersReads = 0;
       const s = session.fromPartition("persist:sentinel-x");
       try {
         await s.protocol.unhandle("https");
@@ -48,20 +53,33 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
           );
         if (pathname === "/plaskeev/following")
           return new Response(
-            '<main data-testid="primaryColumn"><div data-testid="UserCell"><a href="/alice">Alice</a></div><div data-testid="UserCell"><a href="/bob">Bob</a></div></main>',
+            `<main data-testid="primaryColumn">${
+              mode === "fallback"
+                ? '<div data-testid="UserCell"><a href="/alice">Alice</a></div><div data-testid="UserCell"><a href="/bob">Bob</a></div>'
+                : Array.from(
+                    { length: 210 },
+                    (_, index) =>
+                      `<div data-testid="UserCell"><a href="/${index === 0 ? "example" : `account${index}`}">Account</a></div>`,
+                  ).join("")
+            }</main>`,
             { headers: { "content-type": "text/html; charset=utf-8" } },
           );
-        if (pathname === "/example/followers")
+        if (pathname === "/example/followers") {
+          const state = globalThis as typeof globalThis & {
+            sentinelTokenFollowersReads?: number;
+          };
+          state.sentinelTokenFollowersReads =
+            (state.sentinelTokenFollowersReads ?? 0) + 1;
           if (mode === "fallback")
             return new Response(
               '<main data-testid="primaryColumn"><script>history.replaceState({}, "", "/unexpected")</script></main>',
               { headers: { "content-type": "text/html; charset=utf-8" } },
             );
-          else
-            return new Response(
-              '<main data-testid="primaryColumn"><div data-testid="UserName">Example @example</div><div data-testid="UserCell"><a href="/alice">Alice</a><button>Following</button></div><div data-testid="UserCell"><a href="/bob">Bob</a><button>Following</button></div><p>No more results</p></main>',
-              { headers: { "content-type": "text/html; charset=utf-8" } },
-            );
+          return new Response(
+            '<main data-testid="primaryColumn"><div data-testid="UserName">Example @example</div><div data-testid="UserCell"><a href="/alice">Alice</a><button>Following</button></div><div data-testid="UserCell"><a href="/bob">Bob</a><button>Following</button></div><p>No more results</p></main>',
+            { headers: { "content-type": "text/html; charset=utf-8" } },
+          );
+        }
         return new Response(
           mode === "limit"
             ? '<main><div role="alert">You have reached your usage limit. Try again later.</div></main>'
@@ -127,7 +145,7 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
     expect(report.grok?.followingOverlap).toMatchObject({
       state: "complete",
       followingTotal: 210,
-      matchedFollowing: 2,
+      matchedFollowing: 1,
     });
     expect(report.grok?.answer.unknowns.join(" ")).toContain(
       "ДЕМО: профиль не подтвержден",
@@ -160,7 +178,7 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
     const overlapBadge = page.getByLabel("Подписки из вашей ленты", {
       exact: true,
     });
-    await expect(overlapBadge).toContainText("2 / 210");
+    await expect(overlapBadge).toContainText("1 / 210");
     await expect(overlapBadge).toContainText("@example");
     await expect(
       page.getByText("ДЕМО: повторяющиеся промо-посты", { exact: true }),
@@ -213,6 +231,16 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
       followingTotal: 2,
       matchedFollowing: 0,
     });
+    expect(
+      await app.evaluate(
+        () =>
+          (
+            globalThis as typeof globalThis & {
+              sentinelTokenFollowersReads?: number;
+            }
+          ).sentinelTokenFollowersReads,
+      ),
+    ).toBe(0);
     await page.evaluate(() => window.sentinel.sourceLogin("grok"));
     expect(
       await app.evaluate(({ BrowserWindow }) =>
