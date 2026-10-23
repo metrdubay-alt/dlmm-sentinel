@@ -9,7 +9,7 @@ export const GMGN_READ_SCRIPT = `(() => {
   const readInfo=(scope,label)=>{
     const rows=[...scope.querySelectorAll('[data-sentry-component="InfoItem"]')].filter(e=>matches(clean(e.querySelector('.info-item-title')),label));
     const direct=rows.length===1?clean(rows[0].querySelector('.info-item-value')):'';
-    const fallbackValues=[...scope.querySelectorAll('*')].filter(e=>e.children.length===0&&matches(clean(e),label)).map(e=>clean(e.nextElementSibling)).filter(Boolean);
+    const fallbackValues=[...scope.querySelectorAll('*')].filter(e=>e.children.length===0&&matches(clean(e),label)).flatMap(e=>[e.nextElementSibling,e.parentElement?.nextElementSibling].map(clean)).filter(Boolean);
     const fallback=[...new Set(fallbackValues)];
     return direct||(fallback.length===1?fallback[0]:'');
   };
