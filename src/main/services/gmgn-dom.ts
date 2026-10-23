@@ -9,7 +9,10 @@ export const GMGN_READ_SCRIPT = `(() => {
   const info={};
   for(const label of ['Top 10','Holders','Snipers','DEV','Total Fees']) {
     const rows=[...root.querySelectorAll('[data-sentry-component="InfoItem"]')].filter(e=>matches(clean(e.querySelector('.info-item-title')),label));
-    info[label]=rows.length===1?clean(rows[0].querySelector('.info-item-value')):'';
+    const direct=rows.length===1?clean(rows[0].querySelector('.info-item-value')):'';
+    const fallbackValues=[...root.querySelectorAll('*')].filter(e=>e.children.length===0&&matches(clean(e),label)).map(e=>clean(e.nextElementSibling)).filter(Boolean);
+    const fallback=[...new Set(fallbackValues)];
+    info[label]=direct||(fallback.length===1?fallback[0]:'');
   }
   const visible=e=>e.getClientRects().length>0&&getComputedStyle(e).visibility==='visible';
   const sniperRows=[...root.querySelectorAll('[data-sentry-component="InfoItem"], [data-sentry-component="CommonItemView"]')].filter(e=>visible(e)&&matches(clean(e.querySelector('.info-item-title, .item-title-cn')),'Snipers'));

@@ -50,6 +50,10 @@ it("does not treat a different coin's fees as SOL", () =>
   expect(
     gmgnStrategyInput(read({ feeIcon: "IconBnb" })).totalFeesSolEquivalent,
   ).toBeNull());
+it("uses the Solana chain when GMGN omits only the decorative fee icon", () =>
+  expect(
+    read({ feeIcon: "" }).nativeFees,
+  ).toMatchObject({ asset: "SOL", amount: { value: 32.35 } }));
 it("rejects a different page or token identity", () => {
   expect(() => read({ url: `https://gmgn.ai/bsc/token/${address}` })).toThrow();
   expect(() => read({ tokenLinks: [] })).toThrow();

@@ -96,6 +96,25 @@ it("accepts a matching X profile title when the followers page omits its header"
   ).toMatchObject({ state: "complete", followingTotal: 210 });
 });
 
+it("accepts X's known-followers subroute for the target profile", () => {
+  expect(
+    parseXFollowingOverlapPayload(
+      {
+        ...completePayload,
+        url: "https://x.com/example/followers/you_follow",
+        followingTotal: "37 Following",
+        matchedFollowing: 5,
+      },
+      "example",
+      at,
+    ),
+  ).toMatchObject({
+    state: "complete",
+    followingTotal: 37,
+    matchedFollowing: 5,
+  });
+});
+
 it("accepts X's explicit statement that nobody you follow follows the token", () => {
   expect(
     parseXFollowingOverlapPayload(

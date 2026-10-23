@@ -342,14 +342,15 @@ export function parseGmgnCard(
       return [];
     }
   });
+  const feeIcon = x.feeIcon.toLowerCase();
   const asset =
-    target.chain === "sol" && x.feeIcon === "IconSolanabal14pxS"
+    target.chain === "sol" && !/(?:bnb|eth|base)/.test(feeIcon)
       ? "SOL"
-      : target.chain === "bsc" && x.feeIcon === "IconBscbal12px"
+      : target.chain === "bsc" && /(?:bsc|bnb)/.test(feeIcon)
         ? "BNB"
-        : (target.chain === "base" && x.feeIcon === "IconBaseeth10016pxS") ||
+        : (target.chain === "base" && /(?:base|eth)/.test(feeIcon)) ||
             (target.chain === "robinhood" &&
-              x.feeIcon === "IconRobinhoodeth16pxS")
+              /(?:robinhood|eth)/.test(feeIcon))
           ? "ETH"
           : null;
   return gmgnSnapshotSchema.parse({

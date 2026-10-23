@@ -117,9 +117,12 @@ export function parseXFollowingOverlapPayload(
   const path = url.pathname.toLowerCase().replace(/\/$/, "");
   const followersPath = `/${target}/followers`;
   const profilePath = `/${target}`;
+  const isTargetFollowersRoute =
+    path === followersPath || path.startsWith(`${followersPath}/`);
   if (
     url.origin !== "https://x.com" ||
-    (path !== followersPath && !(raw.noneFollowedByYou && path === profilePath))
+    (!isTargetFollowersRoute &&
+      !(raw.noneFollowedByYou && path === profilePath))
   )
     return {
       state: "error",

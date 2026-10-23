@@ -126,6 +126,38 @@ it("accepts GMGN's successful candle-response envelope", () => {
   ).toMatchObject({ volumeUsd: { value: 321 } });
 });
 
+it("sums a complete paginated GMGN candle history", () => {
+  const observed = "2025-10-15T00:03:00.000Z";
+  const completed = Math.floor(Date.parse(observed) / 1000 / 86_400) * 86_400;
+  expect(
+    parseGmgnAllTimeCandleVolume(
+      {
+        url: `https://gmgn.ai/sol/token/${address}`,
+        tokenAddress: address,
+        resolution: "1d",
+        limit: 501,
+        complete: true,
+        data: {
+          _debug_tpool: { base_address: address },
+          list: [{ time: (completed - 86_400) * 1000, volume: "5" }],
+        },
+        pages: [
+          {
+            _debug_tpool: { base_address: address },
+            list: [{ time: (completed - 86_400) * 1000, volume: "5" }],
+          },
+          {
+            _debug_tpool: { base_address: address },
+            list: [{ time: (completed - 172_800) * 1000, volume: "7.5" }],
+          },
+        ],
+      },
+      target,
+      observed,
+    ),
+  ).toMatchObject({ volumeUsd: { value: 12.5 } });
+});
+
 it("rejects potentially truncated, mismatched, or open GMGN candle ranges", () => {
   const observed = "2025-10-15T00:03:00.000Z";
   const completed = Math.floor(Date.parse(observed) / 1000 / 60) * 60;
@@ -170,20 +202,20 @@ it("rejects potentially truncated, mismatched, or open GMGN candle ranges", () =
 it("falls back to the next GMGN chart resolution after a failed request", async () => {
   const observed = "2025-10-15T00:03:00.000Z";
   const completed = Math.floor(Date.parse(observed) / 1000 / 300) * 300;
-  let calls = 0;
+  const scripts: string[] = [];
   await expect(
     readGmgnAllTimeVolume(
-      async () => {
-        calls++;
-        if (calls === 1) throw new Error("1m unavailable");
+      async (script) => {
+        scripts.push(script);
+        if (scripts.length === 1) throw new Error("1d unavailable");
         return {
           url: `https://gmgn.ai/sol/token/${address}`,
           tokenAddress: address,
-          resolution: "5m",
+          resolution: "4h",
           limit: 501,
           data: {
             _debug_tpool: { base_address: address },
-            list: [{ time: (completed - 300) * 1000, volume: "1234" }],
+            list: [{ time: (completed - 14_400) * 1000, volume: "1234" }],
           },
         };
       },
@@ -191,5 +223,7 @@ it("falls back to the next GMGN chart resolution after a failed request", async 
       observed,
     ),
   ).resolves.toMatchObject({ volumeUsd: { value: 1234 } });
-  expect(calls).toBe(2);
+  expect(scripts).toHaveLength(2);
+  expect(scripts[0]).toContain('set(\'resolution\',"1d")');
+  expect(scripts[1]).toContain('set(\'resolution\',"4h")');
 });

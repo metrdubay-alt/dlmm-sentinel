@@ -90,18 +90,28 @@ const candleDataSchema = z.object({
     .max(maxCandles),
 });
 
+const candleResponseSchema = z.union([
+  candleDataSchema,
+  z.object({ code: z.literal(0), data: candleDataSchema }),
+]);
+
 const rawCandleRangeSchema = z
   .object({
     url: z.string().url().max(2048),
     tokenAddress: z.string().max(100),
     resolution: z.enum(["1m", "5m", "15m", "1h", "4h", "1d"]),
     limit: z.literal(maxCandles),
-    data: z.union([
-      candleDataSchema,
-      z.object({ code: z.literal(0), data: candleDataSchema }),
-    ]),
+    data: candleResponseSchema,
+    pages: z.array(candleResponseSchema).min(1).max(32).optional(),
+    complete: z.boolean().optional(),
   })
   .strict();
+
+function unwrapCandleResponse(
+  response: z.infer<typeof candleResponseSchema>,
+) {
+  return "list" in response ? response : response.data;
+}
 
 function isCanonicalTokenUrl(
   urlText: string,
@@ -138,23 +148,28 @@ export function parseGmgnAllTimeCandleVolume(
   const observed = Date.parse(observedAt) / 1000;
   if (!parsed.success || !Number.isFinite(observed)) return null;
   const value = parsed.data;
-  const candlesData = "list" in value.data ? value.data : value.data.data;
+  const pages = value.pages?.map(unwrapCandleResponse);
+  const candlesData = pages ?? [unwrapCandleResponse(value.data)];
   if (
     !isCanonicalTokenUrl(value.url, value.tokenAddress, target) ||
-    (candlesData._debug_tpool?.base_address &&
-      (target.chain === "sol"
-        ? candlesData._debug_tpool.base_address !== target.address
-        : candlesData._debug_tpool.base_address.toLowerCase() !==
-          target.address.toLowerCase())) ||
-    candlesData.list.length === 0 ||
-    candlesData.list.length >= value.limit
+    (value.pages !== undefined && value.complete !== true) ||
+    candlesData.some(
+      (page) =>
+        (page._debug_tpool?.base_address &&
+          (target.chain === "sol"
+            ? page._debug_tpool.base_address !== target.address
+            : page._debug_tpool.base_address.toLowerCase() !==
+              target.address.toLowerCase())) ||
+        page.list.length === 0 ||
+        (value.pages === undefined && page.list.length >= value.limit),
+    )
   )
     return null;
 
   const candleSeconds = candleResolutions[value.resolution];
   const completedBefore = Math.floor(observed / candleSeconds) * candleSeconds;
   const candles = new Map<number, number>();
-  for (const candle of candlesData.list) {
+  for (const candle of candlesData.flatMap((page) => page.list)) {
     const timestamp = candle.time / 1000;
     const volume = Number(candle.volume);
     if (
@@ -208,12 +223,23 @@ export function gmgnAllTimeCandlesScript(
   const sessionSource=[...resourceNames].reverse().map(name=>{try{return new URL(name)}catch{return null}}).find(u=>u&&u.origin===location.origin&&/^\\/(?:api|vas)\\//.test(u.pathname)&&sessionKeys.some(key=>u.searchParams.has(key)));
   for(const key of ['from','to','from_timestamp','to_timestamp','before_timestamp','limit','resolution'])url.searchParams.delete(key);
   for(const key of sessionKeys){const value=capturedSessionParameters[key]||sessionSource?.searchParams.get(key);if(value)url.searchParams.set(key,value)}
-  url.searchParams.set('resolution',${JSON.stringify(resolution)});url.searchParams.set('from','0');url.searchParams.set('to',String(Date.now()));url.searchParams.set('limit',${JSON.stringify(maxCandles)});
-  const response=await fetch(url.href,{credentials:'same-origin',cache:'no-store',redirect:'error',headers:{Accept:'application/json'},signal:AbortSignal.timeout(10000)});
-  if(!response.ok)throw Error('Chart candles unavailable');
-  const data=await response.json();
+  url.searchParams.set('resolution',${JSON.stringify(resolution)});url.searchParams.set('from','0');url.searchParams.set('limit',${JSON.stringify(maxCandles)});
+  const unwrap=data=>data&&typeof data==='object'&&data.code===0&&data.data?data.data:data;
+  const pages=[];let before=Date.now();let complete=false;
+  for(let page=0;page<32;page++){
+    url.searchParams.set('to',String(before));
+    const response=await fetch(url.href,{credentials:'same-origin',cache:'no-store',redirect:'error',headers:{Accept:'application/json'},signal:AbortSignal.timeout(10000)});
+    if(!response.ok)throw Error('Chart candles unavailable');
+    const data=await response.json();const list=unwrap(data)?.list;
+    if(!Array.isArray(list))throw Error('Chart candles malformed');
+    pages.push(data);
+    if(list.length<${JSON.stringify(maxCandles)}){complete=true;break}
+    const oldest=Math.min(...list.map(candle=>Number(candle?.time)).filter(Number.isFinite));
+    if(!Number.isFinite(oldest)||oldest<=0||oldest>=before)throw Error('Chart candles pagination stalled');
+    before=oldest-1;
+  }
   if(location.pathname!==tokenPath)throw Error('Token changed');
-  return {url:location.href,tokenAddress:${JSON.stringify(target.address)},resolution:${JSON.stringify(resolution)},limit:${JSON.stringify(maxCandles)},data};
+  return {url:location.href,tokenAddress:${JSON.stringify(target.address)},resolution:${JSON.stringify(resolution)},limit:${JSON.stringify(maxCandles)},data:pages[0],pages,complete};
  })()`;
 }
 
@@ -224,9 +250,16 @@ export async function readGmgnAllTimeVolume(
   sessionParameters: Partial<Record<GmgnSessionParameterName, string>> = {},
   chartUrl: string | null = null,
 ) {
-  for (const resolution of Object.keys(
-    candleResolutions,
-  ) as CandleResolution[]) {
+  // Total volume is resolution-independent. Start with days so an established
+  // token needs a handful of pages instead of thousands of minute candles.
+  for (const resolution of [
+    "1d",
+    "4h",
+    "1h",
+    "15m",
+    "5m",
+    "1m",
+  ] as CandleResolution[]) {
     try {
       const parsed = parseGmgnAllTimeCandleVolume(
         await execute(
