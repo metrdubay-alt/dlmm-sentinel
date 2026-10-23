@@ -14,6 +14,9 @@ import {
   GROK_RESPONSE_TIMEOUT_MS,
   grokResponseDeadline,
 } from "../../shared/analysis/grok-timeout";
+import { withOperationTimeout } from "./operation-timeout";
+
+const GROK_PAGE_OPERATION_TIMEOUT_MS = 20_000;
 // Only the public Grok DOM. No page globals, cookies, tokens or private endpoints.
 export const GROK_STATE_SCRIPT = String.raw`(() => {
  const visible=e=>!!e&&e.getClientRects().length>0&&getComputedStyle(e).visibility!=='hidden';
@@ -117,6 +120,13 @@ export class GrokBrowser extends XBrowser {
     if (u.origin !== "https://x.com" || u.pathname !== "/i/grok")
       throw new Error("Grok открыт на другой странице. Анализ остановлен.");
   }
+  private evaluate<T>(win: BrowserWindow, script: string): Promise<T> {
+    return withOperationTimeout(
+      win.webContents.executeJavaScript(script) as Promise<T>,
+      GROK_PAGE_OPERATION_TIMEOUT_MS,
+      "Страница Grok не ответила за 20 секунд. Анализ остановлен; повторите после перезагрузки Grok.",
+    );
+  }
   async run(
     config: WorkspaceConfig,
     parent: BrowserWindow,
@@ -149,7 +159,7 @@ export class GrokBrowser extends XBrowser {
       const readyUntil = Date.now() + 30000;
       while (Date.now() < readyUntil) {
         this.check(win);
-        observed = await win.webContents.executeJavaScript(GROK_STATE_SCRIPT);
+        observed = await this.evaluate<State>(win, GROK_STATE_SCRIPT);
         if (observed!.blocked) throw new Error(observed!.blocked);
         if (observed!.editorReady) break;
         await new Promise((r) => setTimeout(r, 1000));
@@ -170,7 +180,8 @@ export class GrokBrowser extends XBrowser {
       this.state.phase = "sending";
       this.check(win);
       const prompt = buildGrokPrompt(context);
-      const filled = await win.webContents.executeJavaScript(
+      const filled = await this.evaluate<boolean>(
+        win,
         `(() => {const u=new URL(location.href);if(u.origin!=="https://x.com"||u.pathname!=="/i/grok")return false;const nodes=[...document.querySelectorAll('textarea')].filter(e=>e.getClientRects().length&&getComputedStyle(e).visibility!=='hidden');if(nodes.length!==1||nodes[0].value.trim()||nodes[0].disabled||nodes[0].readOnly||nodes[0].getAttribute('aria-disabled')==='true')return false;const setter=Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value')?.set;if(!setter)return false;setter.call(nodes[0],${JSON.stringify(prompt)});nodes[0].dispatchEvent(new Event('input',{bubbles:true}));return true;})()`,
       );
       if (!filled)
@@ -178,7 +189,7 @@ export class GrokBrowser extends XBrowser {
       unsentPrompt = prompt;
       await new Promise((r) => setTimeout(r, 250));
       this.check(win);
-      observed = await win.webContents.executeJavaScript(GROK_STATE_SCRIPT);
+      observed = await this.evaluate<State>(win, GROK_STATE_SCRIPT);
       if (observed!.value !== prompt)
         throw new Error(
           "Не удалось заполнить запрос Grok. Запрос не отправлен.",
@@ -188,9 +199,10 @@ export class GrokBrowser extends XBrowser {
       const sendUntil = Date.now() + 10000;
       while (Date.now() < sendUntil) {
         this.check(win);
-        observed = await win.webContents.executeJavaScript(GROK_STATE_SCRIPT);
+        observed = await this.evaluate<State>(win, GROK_STATE_SCRIPT);
         if (observed!.blocked) throw new Error(observed!.blocked);
-        const outcome = await win.webContents.executeJavaScript(
+        const outcome = await this.evaluate<string>(
+          win,
           grokSubmitScript(prompt),
         );
         if (outcome === "sent") {
@@ -219,7 +231,7 @@ export class GrokBrowser extends XBrowser {
         if (conversation && id !== conversation)
           throw new Error("Чат Grok сменился во время анализа.");
         if (id) conversation = id;
-        observed = await win.webContents.executeJavaScript(GROK_STATE_SCRIPT);
+        observed = await this.evaluate<State>(win, GROK_STATE_SCRIPT);
         if (observed!.blocked) throw new Error(observed!.blocked);
         if (
           Date.now() - submittedAt > 25000 &&

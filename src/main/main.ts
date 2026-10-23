@@ -35,6 +35,9 @@ import {
   type FabriqFeeEvidence,
 } from "../shared/analysis/pool-fees";
 import type { XFollowingOverlap } from "../shared/analysis/x-following-overlap";
+import { withOperationTimeout } from "./services/operation-timeout";
+
+const X_OVERLAP_TIMEOUT_MS = 90_000;
 const dev = !app.isPackaged && process.env.SENTINEL_DEV === "1";
 if (process.env.SENTINEL_DATA_DIR)
   app.setPath("userData", path.resolve(process.env.SENTINEL_DATA_DIR));
@@ -174,9 +177,10 @@ async function start() {
                 handle: string,
               ): Promise<XFollowingOverlap> => {
                 try {
-                  return await xBrowser.collectFollowingOverlap(
-                    handle,
-                    window!,
+                  return await withOperationTimeout(
+                    xBrowser.collectFollowingOverlap(handle, window!),
+                    X_OVERLAP_TIMEOUT_MS,
+                    "Проверка подписок X не завершилась за 90 секунд.",
                   );
                 } catch {
                   return {
