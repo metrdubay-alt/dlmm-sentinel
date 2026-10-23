@@ -81,3 +81,57 @@ it("uses direct discovery, actual 5m volumes, dynamic fee and active TVL", async
   });
   expect(requests.every((u) => u.includes("meteora.ag/"))).toBe(true);
 });
+
+it("keeps the highest-TVL pools when a token has more than 200 Meteora pools", async () => {
+  const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+  const pools = Array.from({ length: 201 }, (_, index) => {
+    const suffix = `${alphabet[index % alphabet.length]}${alphabet[Math.floor(index / alphabet.length)]}`;
+    return {
+      pool_address: `${"A".repeat(30)}${suffix}`,
+      pool_type: "dlmm" as const,
+      token_x: { address, symbol: "DEMO" },
+      token_y: {
+        address: "So11111111111111111111111111111111111111112",
+        symbol: "SOL",
+      },
+      tvl: 100000 - index,
+      active_tvl: 5000,
+      fee_pct: 1,
+      dlmm_params: { bin_step: 100 },
+    };
+  });
+  const fetcher = (async (input: string | URL | Request) => {
+    const u = new URL(String(input));
+    if (u.hostname.startsWith("pool-discovery"))
+      return Response.json({ has_more: false, data: pools });
+    if (u.pathname.endsWith("/history")) {
+      const end = Number(u.searchParams.get("end_time"));
+      return Response.json({
+        start_time: end - 3600,
+        end_time: end,
+        data: [],
+      });
+    }
+    const poolAddress = u.pathname.split("/")[2];
+    const pool = pools.find(
+      (candidate) => candidate.pool_address === poolAddress,
+    )!;
+    return Response.json({
+      address: pool.pool_address,
+      token_x: pool.token_x,
+      token_y: pool.token_y,
+      tvl: pool.tvl,
+      pool_config: { base_fee_pct: 1 },
+      dynamic_fee_pct: 0,
+    });
+  }) as typeof fetch;
+
+  const result = await captureMeteora({ chain: "sol", address }, fetcher);
+
+  expect(result.discoveredCount).toBe(201);
+  expect(result.discoveryComplete).toBe(true);
+  expect(result.rows).toHaveLength(20);
+  expect(result.rows.map((row) => row.address)).toContain(
+    pools[0].pool_address,
+  );
+});

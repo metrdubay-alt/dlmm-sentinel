@@ -21,6 +21,7 @@ const discovery = z.object({
   has_more: z.boolean(),
   after_key: z.string().nullable().optional(),
 });
+const DETAIL_POOL_LIMIT = 20;
 export function meteoraVolumes(raw: unknown, end: number) {
   const r = z
     .object({
@@ -75,10 +76,6 @@ export async function captureMeteora(
         p.token_y.address === target.address
       )
         pools.set(p.pool_address, p);
-    if (pools.size > 200)
-      throw Error(
-        "Более 200 пулов Meteora: список требует дополнительной загрузки",
-      );
     if (!d.has_more) {
       complete = true;
       break;
@@ -88,9 +85,14 @@ export async function captureMeteora(
     after = d.after_key;
     cursors.add(after);
   }
-  if (!complete) throw Error("Не удалось получить полный список Meteora");
   const end = Math.floor(Date.now() / 300000) * 300;
-  const candidates = [...pools.values()].filter((p) => (p.tvl ?? 0) > 1000);
+  // The discovery API can legitimately return hundreds of historical pools.
+  // The screen renders ten rows, so enrich only the twenty deepest pools and
+  // retain the total discovery count for an honest coverage indicator.
+  const candidates = [...pools.values()]
+    .filter((p) => (p.tvl ?? 0) > 1000)
+    .sort((left, right) => (right.tvl ?? 0) - (left.tvl ?? 0))
+    .slice(0, DETAIL_POOL_LIMIT);
   const rows: PoolRow[] = [];
   for (let i = 0; i < candidates.length; i += 3) {
     rows.push(

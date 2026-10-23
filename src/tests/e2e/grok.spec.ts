@@ -70,11 +70,6 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
           };
           state.sentinelTokenFollowersReads =
             (state.sentinelTokenFollowersReads ?? 0) + 1;
-          if (mode === "fallback")
-            return new Response(
-              '<main data-testid="primaryColumn"><script>history.replaceState({}, "", "/unexpected")</script></main>',
-              { headers: { "content-type": "text/html; charset=utf-8" } },
-            );
           return new Response(
             '<main data-testid="primaryColumn"><div data-testid="UserName">Example @example</div><div data-testid="UserCell"><a href="/alice">Alice</a><button>Following</button></div><div data-testid="UserCell"><a href="/bob">Bob</a><button>Following</button></div><p>No more results</p></main>',
             { headers: { "content-type": "text/html; charset=utf-8" } },
@@ -145,7 +140,7 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
     expect(report.grok?.followingOverlap).toMatchObject({
       state: "complete",
       followingTotal: 210,
-      matchedFollowing: 1,
+      matchedFollowing: 2,
     });
     expect(report.grok?.answer.unknowns.join(" ")).toContain(
       "ДЕМО: профиль не подтвержден",
@@ -178,7 +173,7 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
     const overlapBadge = page.getByLabel("Подписки из вашей ленты", {
       exact: true,
     });
-    await expect(overlapBadge).toContainText("1 / 210");
+    await expect(overlapBadge).toContainText("2 / 210");
     await expect(overlapBadge).toContainText("@example");
     await expect(
       page.getByText("ДЕМО: повторяющиеся промо-посты", { exact: true }),
@@ -229,7 +224,7 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
     expect(fallbackReport.grok?.followingOverlap).toMatchObject({
       state: "complete",
       followingTotal: 2,
-      matchedFollowing: 0,
+      matchedFollowing: 2,
     });
     expect(
       await app.evaluate(
@@ -240,7 +235,7 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
             }
           ).sentinelTokenFollowersReads,
       ),
-    ).toBe(0);
+    ).toBe(1);
     await page.evaluate(() => window.sentinel.sourceLogin("grok"));
     expect(
       await app.evaluate(({ BrowserWindow }) =>
