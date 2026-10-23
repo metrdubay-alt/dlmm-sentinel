@@ -6,13 +6,16 @@ export const GMGN_READ_SCRIPT = `(() => {
   const clean=e=>(e?.innerText||'').replace(/[\\uE000-\\uF8FF]/g,'').trim();
   const aliases=${JSON.stringify(gmgnLabels)};
   const matches=(value,label)=>(aliases[label]||[label]).includes(value);
+  const readInfo=(scope,label)=>{
+    const rows=[...scope.querySelectorAll('[data-sentry-component="InfoItem"]')].filter(e=>matches(clean(e.querySelector('.info-item-title')),label));
+    const direct=rows.length===1?clean(rows[0].querySelector('.info-item-value')):'';
+    const fallbackValues=[...scope.querySelectorAll('*')].filter(e=>e.children.length===0&&matches(clean(e),label)).map(e=>clean(e.nextElementSibling)).filter(Boolean);
+    const fallback=[...new Set(fallbackValues)];
+    return direct||(fallback.length===1?fallback[0]:'');
+  };
   const info={};
   for(const label of ['Top 10','Holders','Snipers','DEV','Total Fees']) {
-    const rows=[...root.querySelectorAll('[data-sentry-component="InfoItem"]')].filter(e=>matches(clean(e.querySelector('.info-item-title')),label));
-    const direct=rows.length===1?clean(rows[0].querySelector('.info-item-value')):'';
-    const fallbackValues=[...root.querySelectorAll('*')].filter(e=>e.children.length===0&&matches(clean(e),label)).map(e=>clean(e.nextElementSibling)).filter(Boolean);
-    const fallback=[...new Set(fallbackValues)];
-    info[label]=direct||(fallback.length===1?fallback[0]:'');
+    info[label]=readInfo(root,label)||readInfo(document,label);
   }
   const visible=e=>e.getClientRects().length>0&&getComputedStyle(e).visibility==='visible';
   const sniperRows=[...root.querySelectorAll('[data-sentry-component="InfoItem"], [data-sentry-component="CommonItemView"]')].filter(e=>visible(e)&&matches(clean(e.querySelector('.info-item-title, .item-title-cn')),'Snipers'));
@@ -34,7 +37,7 @@ export const GMGN_READ_SCRIPT = `(() => {
   }
   const volLabels=[...root.querySelectorAll('span')].filter(e=>['Vol','Объём','Объем'].includes(clean(e)));
   const periodLabels=[...root.querySelectorAll('span')].filter(e=>['1m','5m','1h','24h'].includes(clean(e))&&e.parentElement?.classList.contains('bg-card-100'));
-  const fees=[...root.querySelectorAll('[data-sentry-component="InfoItem"]')].filter(e=>clean(e.querySelector('.info-item-title'))==='Total Fees');
+  const fees=[root,document].map(scope=>[...scope.querySelectorAll('[data-sentry-component="InfoItem"]')].filter(e=>clean(e.querySelector('.info-item-title'))==='Total Fees')).find(rows=>rows.length===1)||[];
   const eyes=[...root.querySelectorAll('[data-sentry-component="BaseInfoBar"] [data-icon="IconDisplay16pxRegular"]')].filter(e=>e.getClientRects().length>0&&getComputedStyle(e).visibility==='visible');
   const panel=root.querySelector('[id$="panel-holders"]');
   const activePanel=panel&&panel.getClientRects().length>0;
