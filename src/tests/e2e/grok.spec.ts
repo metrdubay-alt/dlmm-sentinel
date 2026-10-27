@@ -64,6 +64,11 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
             }</main>`,
             { headers: { "content-type": "text/html; charset=utf-8" } },
           );
+        if (pathname === "/example")
+          return new Response(
+            `<main data-testid="primaryColumn"><div data-testid="UserName">Example @example</div>${mode === "fallback" ? '<a href="/example/followers_you_follow"><div dir="ltr">Followed by <span>Alice</span> and <span>Bob</span></div></a>' : ""}</main>`,
+            { headers: { "content-type": "text/html; charset=utf-8" } },
+          );
         if (pathname === "/example/followers") {
           const state = globalThis as typeof globalThis & {
             sentinelTokenFollowersReads?: number;
@@ -217,8 +222,15 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
       fullPage: true,
     });
     await install("fallback");
+    await page
+      .getByRole("button", { name: "Обновить анализ Grok", exact: true })
+      .click();
+    await expect(overlapBadge).toContainText("2 / 2", { timeout: 30000 });
+    await expect(
+      page.getByText("Ответ Grok обновлён.", { exact: true }),
+    ).toBeVisible();
     const fallbackReport = await page.evaluate(
-      (t) => window.sentinel.grokRun(t),
+      (t) => window.sentinel.workspaceReport(t),
       target,
     );
     expect(fallbackReport.grok?.followingOverlap).toMatchObject({
@@ -235,7 +247,7 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
             }
           ).sentinelTokenFollowersReads,
       ),
-    ).toBe(1);
+    ).toBe(0); // A complete profile summary needs no followers-list request.
     await page.evaluate(() => window.sentinel.sourceLogin("grok"));
     expect(
       await app.evaluate(({ BrowserWindow }) =>

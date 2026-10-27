@@ -1,3 +1,8 @@
+import {
+  parseXProfileSummary,
+  xProfileSummaryScript,
+  xOwnProfileReadyScript,
+} from "./x-profile-summary";
 import { readConnection } from "./source-connection";
 import { loadSourcePage } from "./source-navigation";
 import { BrowserWindow, session } from "electron";
@@ -109,7 +114,7 @@ const X_OVERLAP_SCRIPT = `(() => new Promise(resolve => {
   const moved=scroll();iterations+=1;
   if(matches.size===previousSize&&!moved)unchanged+=1;else unchanged=0;
   previousSize=matches.size;
-  if((unchanged>=3&&matches.size>0)||iterations>=80){finish(unchanged>=3&&matches.size>0);return;}
+  if((unchanged>=3&&matches.size>0)||iterations>=80){finish(/(?:No more results|You've reached the end|Больше нет результатов|Вы дошли до конца)/i.test(body()));return;}
   setTimeout(step,300);
  };
  step();
@@ -231,31 +236,52 @@ export class XBrowser {
         message: "Войдите в X в приложении.",
       };
     await this.openUrl(`https://x.com/${current.handle}`, parent, true);
+    await this.window!.webContents.executeJavaScript(
+      xOwnProfileReadyScript(current.handle),
+    );
     const ownRaw: unknown =
       await this.window!.webContents.executeJavaScript(X_READ_SCRIPT);
     const own = ownRaw as { following?: string };
+    await this.openUrl(`https://x.com/${target}`, parent, true);
+    const summary = parseXProfileSummary(
+      await this.window!.webContents.executeJavaScript(
+        xProfileSummaryScript(target),
+      ),
+      target,
+      own.following ?? "",
+      observedAt,
+    );
+    if (summary) return summary;
     await this.openUrl(`https://x.com/${target}/followers`, parent, true);
-    let overlap = (await this.window!.webContents.executeJavaScript(
+    const overlap = (await this.window!.webContents.executeJavaScript(
       X_OVERLAP_SCRIPT,
     )) as XOverlapPage;
     if (this.window?.isDestroyed())
       throw new Error("Окно X было закрыто во время чтения.");
-    let parsed = parseXFollowingOverlapPayload(
+    const parsed = parseXFollowingOverlapPayload(
       { ...overlap, followingTotal: own.following ?? "" },
       target,
       observedAt,
     );
-    if (requiresXProfileConfirmationFallback(parsed)) {
+    const returnedToProfile =
+      overlap.url.toLowerCase().replace(/\/$/, "") ===
+      `https://x.com/${target}`;
+    if (requiresXProfileConfirmationFallback(parsed) || returnedToProfile) {
       await this.openUrl(`https://x.com/${target}`, parent, true);
-      overlap = (await this.window!.webContents.executeJavaScript(
-        X_OVERLAP_SCRIPT,
-      )) as XOverlapPage;
-      if (this.window?.isDestroyed())
-        throw new Error("Окно X было закрыто во время чтения.");
-      parsed = parseXFollowingOverlapPayload(
-        { ...overlap, followingTotal: own.following ?? "" },
+      const profile = parseXProfileSummary(
+        await this.window!.webContents.executeJavaScript(
+          xProfileSummaryScript(target),
+        ),
         target,
+        own.following ?? "",
         observedAt,
+      );
+      return (
+        profile ?? {
+          state: "incomplete",
+          observedAt,
+          message: "X не подтвердил число общих подписок.",
+        }
       );
     }
     return parsed;

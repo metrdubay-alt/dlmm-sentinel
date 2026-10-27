@@ -23,9 +23,11 @@ const phaseText = {
 export function GrokAnalysis({
   report: r,
   pipelineBusy,
+  onSaved,
 }: {
   report: WorkspaceReport;
   pipelineBusy?: boolean;
+  onSaved?: (report: WorkspaceReport) => void;
 }) {
   const client = useQueryClient();
   const settings = useQuery({
@@ -42,6 +44,7 @@ export function GrokAnalysis({
     onSuccess: async (report) => {
       client.setQueryData(["workspace-report", report.config.target], report);
       await client.invalidateQueries({ queryKey: ["workspace-list"] });
+      onSaved?.(report);
     },
     onSettled: () => client.invalidateQueries({ queryKey: ["grok-status"] }),
   });

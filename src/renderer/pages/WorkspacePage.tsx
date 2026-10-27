@@ -482,7 +482,27 @@ export function WorkspacePage() {
             error={numericRefresh.error?.message}
             onRefresh={() => numericRefresh.mutate(r.config.target)}
           />
-          <SocialSummary report={r} pipelineBusy={analysis.isPending}>
+          <SocialSummary
+            report={r}
+            pipelineBusy={analysis.isPending}
+            onGrokSaved={() => {
+              stageRef.current = {
+                ...stageRef.current,
+                grok: { state: "done", detail: "Ответ сохранён" },
+              };
+              if (
+                stageRef.current.social?.detail.includes("Профиль X не найден")
+              ) {
+                stageRef.current.social = {
+                  state: "partial",
+                  detail:
+                    "Профиль найден; обновите X/Getmoni для чтения данных.",
+                };
+              }
+              setStages(stageRef.current);
+              setMessage("Ответ Grok обновлён.");
+            }}
+          >
             <details>
               <summary>Импорт структурированного исследования</summary>
               <textarea
@@ -849,10 +869,12 @@ function SocialSummary({
   report: r,
   children,
   pipelineBusy,
+  onGrokSaved,
 }: {
   pipelineBusy?: boolean;
   report: WorkspaceReport;
   children?: ReactNode;
+  onGrokSaved?: (report: WorkspaceReport) => void;
 }) {
   const [copyStatus, setCopyStatus] = useState("");
   const research = r.research
@@ -874,7 +896,11 @@ function SocialSummary({
   return (
     <section className="panel">
       <h2>2. Оценка Twitter · Grok</h2>
-      <GrokAnalysis report={r} pipelineBusy={pipelineBusy} />
+      <GrokAnalysis
+        report={r}
+        pipelineBusy={pipelineBusy}
+        onSaved={onGrokSaved}
+      />
       {result && !r.grok && (
         <h3>
           {result.score === null
