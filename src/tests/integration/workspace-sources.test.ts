@@ -43,7 +43,7 @@ it("continues GMGN and X while Moni is disabled, and resumes Moni when enabled",
       tokenLinks: [`https://bscscan.com/token/${target.address}`],
       info: {},
       risk: {},
-      pool: {},
+      pool: { "Market cap": "$1000" },
       tooltips: [],
       volumeText: "",
       volumePeriod: "5m",
@@ -232,4 +232,58 @@ it("reads a GMGN-linked profile without any Grok account discovery", async () =>
     attribution: "gmgn",
   });
   expect(r.report.relatedMoni?.[0].snapshot?.score).toBe(115);
+});
+
+it("preserves the last valid snapshot and explains an empty GMGN card", async () => {
+  dir = await mkdtemp(path.join(tmpdir(), "sentinel-empty-gmgn-"));
+  db = await openDatabase(dir, path.resolve("prisma/migrations"));
+  const store = new WorkspaceStore(db);
+  const target = {
+    chain: "robinhood" as const,
+    address: "0xcafdbce93477261db8250e42bdae6e66733f9e20",
+  };
+  await store.save({
+    target,
+    label: "test",
+    handle: null,
+    monitor: false,
+    intervalMinutes: 15,
+  });
+  const raw = {
+    url: `https://gmgn.ai/robinhood/token/${target.address}`,
+    tokenLinks: [`https://robin.etherscan.io/token/${target.address}`],
+    info: {},
+    risk: {},
+    pool: { "Market cap": "$1234" },
+    tooltips: [],
+    volumeText: "$0",
+    volumePeriod: "5m",
+    feeIcon: "",
+  };
+  const good = parseGmgnCard(raw, target, "2026-10-28T12:00:00Z");
+  const gmgnStore = new GmgnStore(db);
+  await gmgnStore.save(good);
+  const service = new WorkspaceService(
+    store,
+    {
+      capture: async () =>
+        parseGmgnCard(
+          { ...raw, pool: { "Market cap": "$0" } },
+          target,
+          "2026-10-28T13:00:00Z",
+        ),
+    } as unknown as GmgnBrowser,
+    gmgnStore,
+    {} as MoniBrowser,
+    new MoniStore(db),
+    {} as XBrowser,
+  );
+  const result = await service.refresh(
+    target,
+    {} as BrowserWindow,
+    false,
+    "numeric",
+  );
+  expect(result.report.errors.gmgn).toMatch(/адрес токена.*адрес пула/);
+  expect(result.report.gmgn).toEqual(good);
 });

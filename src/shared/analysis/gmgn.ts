@@ -264,6 +264,14 @@ function measurement(
     return { display: s, value: null, precision: "missing" };
   return { display: s, value, precision: match[2] ? "rounded" : "display" };
 }
+export class GmgnUnavailableError extends Error {
+  constructor() {
+    super(
+      "GMGN не загрузил рыночные данные. Проверьте полный адрес токена: адрес пула не подходит. Если адрес верный, дождитесь загрузки GMGN и повторите чтение.",
+    );
+    this.name = "GmgnUnavailableError";
+  }
+}
 export function parseGmgnCard(
   raw: unknown,
   requested: GmgnTarget,
@@ -329,6 +337,17 @@ export function parseGmgnCard(
     holders.value = null;
     holders.precision = "missing";
   }
+  // GMGN renders a matching explorer link even for a pool/non-token address.
+  // Watchers and risk percentages alone do not establish loaded market data.
+  const marketValues = [
+    holders.value,
+    measurement(x.pool["Market cap"]).value,
+    measurement((x.pool["Total liq"] ?? "").split("(")[0].trim()).value,
+    measurement(x.info["Total Fees"]).value,
+    measurement(x.volumeText).value,
+  ];
+  if (!marketValues.some((value) => value !== null && value > 0))
+    throw new GmgnUnavailableError();
   const poolAddresses = x.poolLinks.flatMap((link) => {
     try {
       const u = new URL(link);
@@ -349,8 +368,7 @@ export function parseGmgnCard(
       : target.chain === "bsc" && /(?:bsc|bnb)/.test(feeIcon)
         ? "BNB"
         : (target.chain === "base" && /(?:base|eth)/.test(feeIcon)) ||
-            (target.chain === "robinhood" &&
-              /(?:robinhood|eth)/.test(feeIcon))
+            (target.chain === "robinhood" && /(?:robinhood|eth)/.test(feeIcon))
           ? "ETH"
           : null;
   return gmgnSnapshotSchema.parse({

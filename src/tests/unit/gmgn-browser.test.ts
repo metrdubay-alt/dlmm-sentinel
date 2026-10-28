@@ -51,9 +51,10 @@ it("does not treat a different coin's fees as SOL", () =>
     gmgnStrategyInput(read({ feeIcon: "IconBnb" })).totalFeesSolEquivalent,
   ).toBeNull());
 it("uses the Solana chain when GMGN omits only the decorative fee icon", () =>
-  expect(
-    read({ feeIcon: "" }).nativeFees,
-  ).toMatchObject({ asset: "SOL", amount: { value: 32.35 } }));
+  expect(read({ feeIcon: "" }).nativeFees).toMatchObject({
+    asset: "SOL",
+    amount: { value: 32.35 },
+  }));
 it("rejects a different page or token identity", () => {
   expect(() => read({ url: `https://gmgn.ai/bsc/token/${address}` })).toThrow();
   expect(() => read({ tokenLinks: [] })).toThrow();
@@ -197,4 +198,37 @@ it("keeps every numeric field separate and never converts a missing DEV share in
   const hour = read({ volumeText: "$923.9K", volumePeriod: "1h" });
   expect(hour.metrics.volume1hUsd.value).toBe(923900);
   expect(hour.metrics.volume5mUsd.value).toBeNull();
+});
+it("rejects the zero-filled GMGN placeholder for a pool address", () => {
+  expect(() =>
+    read({
+      info: { "Top 10": "0%", DEV: "0%", Holders: "0", "Total Fees": "0" },
+      risk: { Bundler: "--%", Phishing: "--%" },
+      pool: {
+        "Market cap": "$0.0000",
+        Holders: "0",
+        "Total liq": "$0",
+        "Token created": "",
+        "Pool created": "",
+      },
+      watchersText: "1",
+      tooltips: [],
+      volumeText: "$0",
+    }),
+  ).toThrow(/адрес токена.*адрес пула/);
+});
+it("rejects an unloaded card even when its explorer link matches", () => {
+  expect(() =>
+    read({ info: {}, risk: {}, pool: {}, tooltips: [], volumeText: "" }),
+  ).toThrow(/GMGN/);
+});
+it("preserves genuine zero activity for a token with loaded market data", () => {
+  const s = read({
+    info: { Holders: "5", "Total Fees": "0" },
+    pool: { "Market cap": "$0" },
+    volumeText: "$0",
+  });
+  expect(s.metrics.volume5mUsd.value).toBe(0);
+  expect(s.metrics.totalFeesSolEquivalent.value).toBe(0);
+  expect(s.metrics.marketCapUsd.value).toBe(0);
 });

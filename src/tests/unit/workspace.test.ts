@@ -15,7 +15,7 @@ const snap = (top: string, at: string) =>
       tokenLinks: [`https://solscan.io/token/${target.address}`],
       info: { "Top 10": top },
       risk: {},
-      pool: {},
+      pool: { "Market cap": "$1000" },
       tooltips: [],
       volumeText: "",
       volumePeriod: "5m",

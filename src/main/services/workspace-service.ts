@@ -1,4 +1,5 @@
 import { MoniReadError } from "../../shared/analysis/moni";
+import { GmgnUnavailableError } from "../../shared/analysis/gmgn";
 import { fetchTransferFee } from "./transfer-fee";
 import type { BrowserWindow } from "electron";
 import type { WorkspaceConfig } from "../../shared/analysis/workspace";
@@ -55,7 +56,9 @@ export class WorkspaceService {
             : error instanceof Error && error.message
               ? `Getmoni не вернул счёт: ${error.message}`
               : "Getmoni не вернул счёт: не удалось прочитать загруженный профиль. Повторите обновление."
-          : `Не удалось прочитать ${source}. Откройте источник и повторите чтение.`;
+          : source === "gmgn" && error instanceof GmgnUnavailableError
+            ? error.message
+            : `Не удалось прочитать ${source}. Откройте источник и повторите чтение.`;
       }
     };
     const transferFeeTask = fetchTransferFee(target);
