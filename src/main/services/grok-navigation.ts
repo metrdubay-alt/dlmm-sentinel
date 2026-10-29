@@ -7,7 +7,7 @@ export async function waitForGrokPage(options: {
   const pause =
     options.pause ?? (() => new Promise<void>((r) => setTimeout(r, 500)));
   for (let attempt = 0; attempt < (options.recover ? 2 : 1); attempt++) {
-    for (let tick = 0; tick < 10; tick++) {
+    for (let tick = 0; tick <= 10; tick++) {
       options.checkWindow();
       const raw = options.url();
       let u: URL;
@@ -35,7 +35,7 @@ export async function waitForGrokPage(options: {
         throw new Error(
           `Окно Grok перешло на другую страницу (${u.origin}${u.pathname}). Повторная отправка запроса не выполнялась.`,
         );
-      await pause();
+      if (tick < 10) await pause();
     }
     if (attempt === 0 && options.recover) {
       options.checkWindow();

@@ -75,3 +75,60 @@ describe("Grok navigation recovery", () => {
     expect(recover).not.toHaveBeenCalled();
   });
 });
+
+describe("last polling interval", () => {
+  it.each([
+    "https://x.com/i/grok?conversation=ready",
+    "https://x.com/i/flow/login",
+    "https://x.com/other",
+  ])("rechecks late URL %s before reopening", async (next) => {
+    let url = "https://x.com/home",
+      ticks = 0;
+    const recover = vi.fn(async () => {
+      url = "https://x.com/i/grok";
+    });
+    const result = waitForGrokPage({
+      url: () => url,
+      checkWindow: () => {},
+      recover,
+      pause: async () => {
+        if (++ticks === 10) url = next;
+      },
+    });
+    if (next.includes("?conversation"))
+      await expect(result).resolves.toBeUndefined();
+    else await expect(result).rejects.toThrow();
+    expect(recover).not.toHaveBeenCalled();
+  });
+  it("accepts readiness at the last tick after recovery", async () => {
+    let url = "https://x.com/home",
+      ticks = 0;
+    const recover = vi.fn(async () => {});
+    await waitForGrokPage({
+      url: () => url,
+      checkWindow: () => {},
+      recover,
+      pause: async () => {
+        if (++ticks === 20) url = "https://x.com/i/grok";
+      },
+    });
+    expect(recover).toHaveBeenCalledTimes(1);
+  });
+  it("honors cancellation during the last pause", async () => {
+    let ticks = 0;
+    const recover = vi.fn();
+    await expect(
+      waitForGrokPage({
+        url: () => "https://x.com/home",
+        checkWindow: () => {
+          if (ticks === 10) throw new Error("cancelled");
+        },
+        recover,
+        pause: async () => {
+          ticks++;
+        },
+      }),
+    ).rejects.toThrow("cancelled");
+    expect(recover).not.toHaveBeenCalled();
+  });
+});

@@ -169,9 +169,12 @@ export class GrokBrowser extends XBrowser {
       // Recover only before filling/sending a prompt. Never restart a submitted chat.
       let recovered = false;
       const recover = async () => {
+        const before = win.webContents.getURL();
         const landing = await this.evaluate<State>(win, GROK_STATE_SCRIPT);
         if (landing.blocked) throw new Error(landing.blocked);
         this.checkWindow(win);
+        // DOM inspection is asynchronous: classify any intervening navigation again.
+        if (win.webContents.getURL() !== before) return;
         recovered = true;
         await super.openGrok(parent, true);
       };

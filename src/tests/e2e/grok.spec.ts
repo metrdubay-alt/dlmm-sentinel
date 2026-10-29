@@ -25,7 +25,16 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
     address: "0xcafdbce93477261db8250e42bdae6e66733f9e20",
   };
   const install = async (
-    mode: "answer" | "limit" | "wait" | "disabled" | "fallback",
+    mode:
+      | "answer"
+      | "limit"
+      | "wait"
+      | "disabled"
+      | "fallback"
+      | "recovery-quota"
+      | "recovery-captcha"
+      | "recovery-login"
+      | "post-navigation",
   ) =>
     app.evaluate(async ({ session }, mode) => {
       (
@@ -40,8 +49,33 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
         /* No previous fixture handler on first run. */
       }
       let grokLoads = 0;
+      const counts = { loads: 0, sends: 0 };
+      (
+        globalThis as typeof globalThis & {
+          grokNavigationCounts?: typeof counts;
+        }
+      ).grokNavigationCounts = counts;
       s.protocol.handle("https", (request) => {
         const pathname = new URL(request.url).pathname;
+        if (pathname === "/fixture-send") {
+          counts.sends++;
+          return new Response("ok");
+        }
+        if (pathname === "/i/grok") counts.loads++;
+        if (mode.startsWith("recovery-") && pathname === "/home")
+          return new Response(
+            `<main><div role="alert">${mode === "recovery-quota" ? "You have reached your usage limit" : "Verify you are human CAPTCHA"}</div></main>`,
+            { headers: { "content-type": "text/html" } },
+          );
+        if (mode === "recovery-login" && pathname === "/i/flow/login")
+          return new Response("<main>Login</main>", {
+            headers: { "content-type": "text/html" },
+          });
+        if (mode.startsWith("recovery-") && pathname === "/i/grok")
+          return new Response(
+            `<script>location.replace("${mode === "recovery-login" ? "/i/flow/login" : "/home"}")</script>`,
+            { headers: { "content-type": "text/html" } },
+          );
         if (pathname === "/home")
           return new Response(
             '<main><p>Log in to see more public posts</p><script>setTimeout(()=>{const button=document.createElement("button");button.dataset.testid="SideNav_AccountSwitcher_Button";button.textContent="Plaskeev";const profile=document.createElement("a");profile.dataset.testid="AppTabBar_Profile_Link";profile.href="/plaskeev";profile.textContent="Profile";document.querySelector("main").append(button,profile)},350)</script></main>',
@@ -95,6 +129,7 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
   document.querySelector('textarea').addEventListener('input',()=>{if(${JSON.stringify(mode)}==='disabled')return;setTimeout(()=>{document.querySelector('button').disabled=false},1200)});
   const t=document.querySelector('textarea');t.focus=()=>{throw new Error('Hidden editor must not require focus')};let sent=0;
   document.querySelector('button').addEventListener('click',()=>{sent++;document.body.dataset.sent=String(sent);const prompt=t.value;t.value='';document.querySelector('#chat').textContent=prompt;
+  if(${JSON.stringify(mode)}==='post-navigation'){fetch('/fixture-send').then(()=>location.replace('/home'));return;}
   if(${JSON.stringify(mode)}==='wait')return;
   const sample=JSON.parse(prompt.split('по этой форме: ')[1].split('\\nДля каждого')[0]);
   const answer={...sample,recentActivity:{...sample.recentActivity,summary:'ДЕМО: найдено важное сообщение команды.',events:[{at:sample.recentActivity.windowEnd,text:'ДЕМО: @dev объявил запуск продукта',significance:'Назван конкретный срок запуска.',sources:['https://x.com/dev/status/456']}]},feeRecipientSupport:{summary:'ДЕМО: @recipient — 4 собственных поста за 7 дней; последний 30 сентября. Поддержка продолжается.',sources:['https://x.com/recipient/status/123']},narrativeDetails:{essence:'ДЕМО: идея и механизм комиссий',adoption:'ДЕМО: два независимых автора и проекты',momentum:'ДЕМО: интерес растёт за 7 дней'},discoveredProfile:{handle:'example',sources:['https://x.com/example/status/123']},tokenSymbol:'',description:'ДЕМО-ДАННЫЕ: найден независимый интерес',greenFlags:[{text:'ДЕМО: команда публикует обновления',sources:['https://x.com/example/status/123']}],score:62,scoreReason:'Оценка Grok по тестовым источникам',narrative:'stable',sources:['https://x.com/example/status/123'],redFlags:[{text:'ДЕМО: профиль не подтвержден',sources:[]},{text:'3% transfer tax на все трансферы $WOW',sources:['https://example.com/fee']},{text:'ДЕМО: повторяющиеся промо-посты',sources:['https://x.com/example/status/123']}]};
@@ -282,6 +317,31 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
           .isVisible(),
       ),
     ).toBe(false);
+    for (const [mode, message] of [
+      ["recovery-quota", /лимит/i],
+      ["recovery-captcha", /проверку/i],
+      ["recovery-login", /вход/i],
+      ["post-navigation", /не загрузилась/i],
+    ] as const) {
+      await install(mode);
+      await expect(
+        page.evaluate((t) => window.sentinel.grokRun(t), target),
+      ).rejects.toThrow(message);
+      expect(
+        await app.evaluate(
+          () =>
+            (
+              globalThis as typeof globalThis & {
+                grokNavigationCounts?: { loads: number; sends: number };
+              }
+            ).grokNavigationCounts,
+        ),
+      ).toEqual({ loads: 1, sends: mode === "post-navigation" ? 1 : 0 });
+      expect(
+        (await page.evaluate((t) => window.sentinel.workspaceReport(t), target))
+          .grok?.requestId,
+      ).toBe(fallbackReport.grok?.requestId);
+    }
     await install("disabled");
     await expect(
       page.evaluate((t) => window.sentinel.grokRun(t), target),
