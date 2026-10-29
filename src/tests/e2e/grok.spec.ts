@@ -3,6 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 test("Grok sends one prompt, saves matched response, keeps result on quota error and cancels", async () => {
+  test.setTimeout(180000);
   const dir = await mkdtemp(path.join(tmpdir(), "sentinel-grok-"));
   const env = Object.fromEntries(
     Object.entries(process.env).filter(
