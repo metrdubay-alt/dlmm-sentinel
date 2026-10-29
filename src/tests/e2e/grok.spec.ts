@@ -39,6 +39,7 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
       } catch {
         /* No previous fixture handler on first run. */
       }
+      let grokLoads = 0;
       s.protocol.handle("https", (request) => {
         const pathname = new URL(request.url).pathname;
         if (pathname === "/home")
@@ -80,6 +81,11 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
             { headers: { "content-type": "text/html; charset=utf-8" } },
           );
         }
+        if (pathname === "/i/grok" && mode === "answer" && ++grokLoads === 1)
+          return new Response(
+            '<script>location.replace("https://x.com/home")</script>',
+            { headers: { "content-type": "text/html" } },
+          );
         return new Response(
           mode === "limit"
             ? '<main><div role="alert">You have reached your usage limit. Try again later.</div></main>'
@@ -158,6 +164,11 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
     const grok = app
       .windows()
       .find((w) => w.url().startsWith("https://x.com/i/grok"))!;
+    expect(await grok.locator("body").getAttribute("data-sent")).toBe("1");
+    await page
+      .getByRole("button", { name: "Аккаунт Grok", exact: true })
+      .click();
+    expect(grok.url()).toMatch(/^https:\/\/x\.com\/i\/grok/);
     expect(await grok.locator("body").getAttribute("data-sent")).toBe("1");
     await expect(grok.locator("body")).toContainText(
       "https://x.com/weightlesswires/status/2105251378750742998",
@@ -252,7 +263,7 @@ test("Grok sends one prompt, saves matched response, keeps result on quota error
     expect(
       await app.evaluate(({ BrowserWindow }) =>
         BrowserWindow.getAllWindows()
-          .find((w) => w.webContents.getURL().includes("/settings/usage"))!
+          .find((w) => w.webContents.getURL().includes("/i/grok"))!
           .isVisible(),
       ),
     ).toBe(true);

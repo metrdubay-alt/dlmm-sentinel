@@ -40,6 +40,7 @@ test("Moni separates missing related profile, available score and verified usage
         });
     });
     const page = await app.firstWindow();
+    await page.getByText("Настройки режима", { exact: true }).click();
     await page.getByLabel("Режим данных").selectOption("live");
     await expect(page.getByLabel("Режим данных")).toBeEnabled();
     await page.evaluate(() => window.sentinel.moniOpen("adolfdevler"));

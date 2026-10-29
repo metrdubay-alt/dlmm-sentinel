@@ -1,3 +1,4 @@
+import { waitForGrokPage } from "./grok-navigation";
 import { readConnection } from "./source-connection";
 import { randomUUID } from "node:crypto";
 import type { BrowserWindow } from "electron";
@@ -77,11 +78,17 @@ export class GrokBrowser extends XBrowser {
     return readConnection(this.window, "grok");
   }
   override async openAccount(parent: BrowserWindow) {
-    if (this.busy && this.window && !this.window.isDestroyed()) {
-      this.window.show();
-      return true;
+    if (this.window && !this.window.isDestroyed()) {
+      const u = new URL(this.window.webContents.getURL());
+      if (
+        this.busy ||
+        (u.origin === "https://x.com" && u.pathname === "/i/grok")
+      ) {
+        this.window.show();
+        return true;
+      }
     }
-    return this.openUrl("https://grok.com/settings/usage", parent, false);
+    return super.openGrok(parent);
   }
   private busy = false;
   private cancelled = false;
@@ -112,13 +119,17 @@ export class GrokBrowser extends XBrowser {
     if (this.busy) this.cancelled = true;
     super.close();
   }
-  private check(win: BrowserWindow) {
+  private checkWindow(win: BrowserWindow) {
     if (this.cancelled) throw new Error("Анализ Grok отменён.");
     if (win.isDestroyed() || this.window !== win)
       throw new Error("Окно Grok закрыто. Анализ остановлен.");
-    const u = new URL(win.webContents.getURL());
-    if (u.origin !== "https://x.com" || u.pathname !== "/i/grok")
-      throw new Error("Grok открыт на другой странице. Анализ остановлен.");
+  }
+  private async check(win: BrowserWindow, recover?: () => Promise<unknown>) {
+    await waitForGrokPage({
+      url: () => win.webContents.getURL(),
+      checkWindow: () => this.checkWindow(win),
+      recover,
+    });
   }
   private evaluate<T>(win: BrowserWindow, script: string): Promise<T> {
     return withOperationTimeout(
@@ -155,10 +166,19 @@ export class GrokBrowser extends XBrowser {
     try {
       await super.openGrok(parent, true);
       const win = this.window!;
+      // Recover only before filling/sending a prompt. Never restart a submitted chat.
+      let recovered = false;
+      const recover = async () => {
+        const landing = await this.evaluate<State>(win, GROK_STATE_SCRIPT);
+        if (landing.blocked) throw new Error(landing.blocked);
+        this.checkWindow(win);
+        recovered = true;
+        await super.openGrok(parent, true);
+      };
       let observed: State | undefined;
       const readyUntil = Date.now() + 30000;
       while (Date.now() < readyUntil) {
-        this.check(win);
+        await this.check(win, recovered ? undefined : recover);
         observed = await this.evaluate<State>(win, GROK_STATE_SCRIPT);
         if (observed!.blocked) throw new Error(observed!.blocked);
         if (observed!.editorReady) break;
@@ -176,9 +196,9 @@ export class GrokBrowser extends XBrowser {
         throw new Error(
           "В Grok открыт старый чат или черновик. Откройте новый чат и повторите анализ.",
         );
-      this.check(win);
+      await this.check(win);
       this.state.phase = "sending";
-      this.check(win);
+      await this.check(win);
       const prompt = buildGrokPrompt(context);
       const filled = await this.evaluate<boolean>(
         win,
@@ -188,7 +208,7 @@ export class GrokBrowser extends XBrowser {
         throw new Error("Поле запроса Grok изменилось. Запрос не отправлен.");
       unsentPrompt = prompt;
       await new Promise((r) => setTimeout(r, 250));
-      this.check(win);
+      await this.check(win);
       observed = await this.evaluate<State>(win, GROK_STATE_SCRIPT);
       if (observed!.value !== prompt)
         throw new Error(
@@ -198,7 +218,7 @@ export class GrokBrowser extends XBrowser {
       let submitted = false;
       const sendUntil = Date.now() + 10000;
       while (Date.now() < sendUntil) {
-        this.check(win);
+        await this.check(win);
         observed = await this.evaluate<State>(win, GROK_STATE_SCRIPT);
         if (observed!.blocked) throw new Error(observed!.blocked);
         const outcome = await this.evaluate<string>(
@@ -225,7 +245,7 @@ export class GrokBrowser extends XBrowser {
         conversation: string | null = null;
       while (Date.now() < deadline) {
         await new Promise((r) => setTimeout(r, 1500));
-        this.check(win);
+        await this.check(win);
         const url = new URL(win.webContents.getURL()),
           id = url.searchParams.get("conversation");
         if (conversation && id !== conversation)
@@ -262,7 +282,7 @@ export class GrokBrowser extends XBrowser {
               `${reason} Откройте Grok для проверки. Сохранённые результаты не изменены.`,
             );
           }
-          this.check(win);
+          await this.check(win);
           const result = grokResultSchema.parse({
             target: context.target,
             handle: context.handle,

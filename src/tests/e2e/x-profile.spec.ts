@@ -70,6 +70,7 @@ test("ДЕМО-ДАННЫЕ: профиль X, неизвестная актив
   try {
     expect(await app.evaluate(({ app }) => app.getPath("userData"))).toBe(dir);
     const page = await app.firstWindow();
+    await page.getByRole("button", { name: "Архив", exact: true }).click();
     await page
       .getByRole("button", { name: "Открыть отчёт", exact: true })
       .click();
