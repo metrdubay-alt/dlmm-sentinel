@@ -1,6 +1,16 @@
 # DLMM Sentinel
 
-Русскоязычное desktop-приложение для исследования токенов и сравнения эффективности пулов. Текущая версия — **0.3.58**. Основная платформа — Windows 10/11 x64.
+Русскоязычное desktop-приложение для исследования токенов и сравнения эффективности пулов. [Исходники выпуска 0.3.91](https://github.com/metrdubay-alt/dlmm-sentinel/tree/v0.3.91).
+
+## Скачать 0.3.91
+
+| Ваша система | Файл версии 0.3.91 |
+| --- | --- |
+| Windows 10/11, Intel или AMD x64 | [DLMM-Sentinel-0.3.91-Windows-x64.exe](https://github.com/metrdubay-alt/dlmm-sentinel/releases/download/v0.3.91/DLMM-Sentinel-0.3.91-Windows-x64.exe) |
+| macOS, Apple Silicon (M1/M2/M3/M4 и новее) | [DLMM-Sentinel-0.3.91-macOS-Apple-Silicon-arm64.dmg](https://github.com/metrdubay-alt/dlmm-sentinel/releases/download/v0.3.91/DLMM-Sentinel-0.3.91-macOS-Apple-Silicon-arm64.dmg) |
+| macOS, процессор Intel | [DLMM-Sentinel-0.3.91-macOS-Intel-x64.dmg](https://github.com/metrdubay-alt/dlmm-sentinel/releases/download/v0.3.91/DLMM-Sentinel-0.3.91-macOS-Intel-x64.dmg) |
+
+Mac — preview без Developer ID и нотариализации Apple. Минимальная macOS: 12.0 и новее; проверено на macOS 15.8.2 (Apple Silicon) и 15.7.9 (Intel). Более старые версии macOS отдельно не проверялись.
 
 ## Возможности
 
@@ -62,17 +72,23 @@
 ## Установка готового приложения
 
 1. Откройте [последний релиз](https://github.com/metrdubay-alt/dlmm-sentinel/releases/latest).
-2. В разделе **Assets** скачайте `DLMM.Sentinel.Setup.0.3.58.exe`. Архивы **Source code** — исходники для разработки, а не установщик.
-3. Запустите установщик, выберите папку и завершите установку. Ярлык **DLMM Sentinel** появится на рабочем столе и в меню «Пуск».
+2. В разделе **Assets** выберите файл для своей системы по таблице в начале страницы. Наличие файла в опубликованном релизе подтверждает завершение сборки; исходники ветки сами по себе не означают готовый релиз. Архивы **Source code** — исходники для разработки, а не установщик.
+3. Windows: запустите `.exe`, выберите папку и завершите установку. Mac: откройте `.dmg`, перенесите **DLMM Sentinel.app** в **Applications / Программы** и запускайте оттуда.
 4. Запустите приложение. Node.js, npm и Git для готового приложения не нужны. Для получения реальных данных нужен интернет.
 
-Установщик не имеет цифровой подписи издателя, поэтому Windows может показать предупреждение. Скачивайте файл именно из этого репозитория. Для проверки скачанного файла сравните результат с `SHA256SUMS.txt` в том же релизе:
+На Mac тип процессора указан в меню Apple → «Об этом Mac». `.exe` на Mac не устанавливается. Минимальная версия macOS из пакета и фактически проверенная версия среды указаны в `package-darwin-*.json` релиза; это разные сведения.
+
+**Mac preview:** приложение имеет только ad-hoc подпись, не подписано Developer ID и не нотариализовано Apple. Gatekeeper может заблокировать первый запуск. Проверки на CI не воспроизводят скачивание с quarantine на личный Mac. Разрешайте только конкретное доверенное приложение по [инструкции Apple](https://support.apple.com/en-us/102445); не отключайте Gatekeeper глобально. Для выпуска с проверенной Apple подписью нужны сертификат Developer ID Application и доступ к notarization.
+
+Windows-установщик также не имеет цифровой подписи издателя, поэтому Windows может показать предупреждение. Скачивайте файлы именно из этого репозитория. Для проверки скачанного файла сравните SHA256 с `SHA256SUMS*.txt` того же релиза:
 
 ```powershell
-Get-FileHash -LiteralPath '.\DLMM.Sentinel.Setup.0.3.58.exe' -Algorithm SHA256
+Get-FileHash -LiteralPath '.\DLMM-Sentinel-0.3.91-Windows-x64.exe' -Algorithm SHA256
 ```
 
 Чтобы обновиться, закройте приложение и установите новую версию поверх прежней. Сохранённые карточки и входы находятся отдельно в профиле приложения. Перед важным обновлением можно сделать копию `%APPDATA%\DLMM Sentinel` при закрытом приложении. Эта копия содержит личные данные и сессии; не отправляйте её другим людям.
+
+На macOS профиль хранится в `~/Library/Application Support/DLMM Sentinel`. Для проверки файла на Mac: `shasum -a 256 ~/Downloads/DLMM-Sentinel-0.3.91-macOS-Apple-Silicon-arm64.dmg` (для Intel подставьте соответствующее имя). Не переносите личный профиль в GitHub или установщик.
 
 ## Как пользоваться
 
