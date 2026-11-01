@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   access,
@@ -28,7 +28,8 @@ let executable: string;
 let installer: string;
 let engineArchitecture: string;
 let minimumMacOS: string | null = null;
-let gatekeeper: string | null = null;
+let gatekeeper: { status: number; stdout: string; stderr: string } | null =
+  null;
 if (platform === "darwin") {
   const label = arch === "arm64" ? "Apple-Silicon" : "Intel";
   installer = `DLMM-Sentinel-${version}-macOS-${label}-${arch}.dmg`;
@@ -87,18 +88,22 @@ if (platform === "darwin") {
     "Print :LSMinimumSystemVersion",
     path.join(application, "Contents", "Info.plist"),
   ]);
-  try {
-    gatekeeper = run("spctl", [
-      "--assess",
-      "--type",
-      "execute",
-      "--verbose=2",
-      application,
-    ]);
-  } catch {
-    gatekeeper =
-      "Rejected: ad-hoc preview is not Developer ID signed or notarized";
-  }
+  const assessment = spawnSync(
+    "spctl",
+    ["--assess", "--type", "execute", "--verbose=2", application],
+    { encoding: "utf8" },
+  );
+  if (assessment.error) throw assessment.error;
+  assert.notEqual(
+    assessment.status,
+    null,
+    "spctl must finish without a signal",
+  );
+  gatekeeper = {
+    status: assessment.status!,
+    stdout: assessment.stdout.trim(),
+    stderr: assessment.stderr.trim(),
+  };
 } else {
   assert.equal(platform, "win32");
   assert.equal(arch, "x64");
