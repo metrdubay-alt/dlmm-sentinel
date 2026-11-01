@@ -1,6 +1,6 @@
 {
   "name": "dlmm-sentinel",
-  "version": "0.3.90",
+  "version": "0.3.91",
   "private": true,
   "description": "Анализ рисков токенов Solana и пулов DLMM",
   "author": "Local User Build",
@@ -19,7 +19,8 @@
     "prisma:migrate": "tsx scripts/create-demo-db.ts",
     "seed:demo": "tsx scripts/create-demo-db.ts --seed",
     "icons:generate": "tsx scripts/generate-icons.ts",
-    "dist:win": "npm run build && electron-builder --win nsis",
+    "dist:win": "npm run build && electron-builder --win nsis --x64 --publish never",
+    "dist:mac": "npm run build && electron-builder --mac dmg --publish never",
     "verify": "npm run lint && npm run typecheck && npm test && npm run build && tsx scripts/verify-build.ts"
   },
   "dependencies": {

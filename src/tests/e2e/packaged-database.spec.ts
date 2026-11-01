@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 test("packaged app loads its own Prisma engine with fresh database and unrelated Cyrillic cwd", async () => {
   const executablePath = process.env.SENTINEL_PACKAGED_EXE;
-  test.skip(!executablePath, "Requires packaged Windows executable");
+  test.skip(!executablePath, "Requires packaged executable");
   const dir = await mkdtemp(
     path.join(tmpdir(), "Sentinel-Александр-чистый запуск-"),
   );

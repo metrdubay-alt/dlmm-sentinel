@@ -29,6 +29,7 @@ output/
 !/scripts/dev.ts
 !/scripts/generate-icons.ts
 !/scripts/verify-build.ts
+!/scripts/verify-package.ts
 *temp.mjs
 *temp.ts
 *temp.txt

@@ -43,3 +43,7 @@ assert(
 );
 if (process.platform === "win32")
   await access("src/generated/client/query_engine-windows.dll.node");
+if (process.platform === "darwin")
+  await access(
+    `src/generated/client/libquery_engine-darwin${process.arch === "arm64" ? "-arm64" : ""}.dylib.node`,
+  );

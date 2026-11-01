@@ -1,0 +1,64 @@
+name: Native packages (review required before release)
+on:
+  push:
+    branches: [release/macos-0.3.91]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: native-packages-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            platform: darwin
+            arch: arm64
+          - runner: macos-15-intel
+            platform: darwin
+            arch: x64
+          - runner: windows-latest
+            platform: win32
+            arch: x64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    env:
+      DATABASE_URL: file:./demo.db
+      EXPECTED_PLATFORM: ${{ matrix.platform }}
+      EXPECTED_ARCH: ${{ matrix.arch }}
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          architecture: ${{ matrix.arch }}
+          cache: npm
+      - name: Assert native environment
+        run: node -e "const a=require('node:assert/strict');a.equal(process.platform,process.env.EXPECTED_PLATFORM);a.equal(process.arch,process.env.EXPECTED_ARCH)"
+      - run: npm ci
+      - run: npm run verify
+      - name: Build macOS disk image (ad-hoc preview)
+        if: runner.os == 'macOS'
+        run: npx electron-builder --mac dmg --${{ matrix.arch }} --publish never
+      - name: Build Windows installer
+        if: runner.os == 'Windows'
+        run: npx electron-builder --win nsis --x64 --publish never
+      - name: Inspect package and prepare installed-copy tests
+        run: npx tsx scripts/verify-package.ts
+      - name: Test packaged application
+        run: npm run test:e2e
+      - name: Upload tested installers and manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: tested-${{ matrix.platform }}-${{ matrix.arch }}-${{ github.sha }}
+          path: |
+            release/*.dmg
+            release/*.exe
+            release/package-*.json
+            release/SHA256SUMS-*.txt
+          if-no-files-found: error
+          retention-days: 30
