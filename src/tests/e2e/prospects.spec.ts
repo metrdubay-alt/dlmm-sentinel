@@ -29,6 +29,7 @@ test("ручное исследование X сохраняется через 
   try {
     expect(await app.evaluate(({ app }) => app.getPath("userData"))).toBe(dir);
     let page = await app.firstWindow();
+    await page.getByRole("button", { name: "Архив", exact: true }).click();
     await page
       .getByRole("button", { name: "Открыть отчёт", exact: true })
       .click();
@@ -66,6 +67,7 @@ test("ручное исследование X сохраняется через 
     await app.close();
     app = await launch();
     page = await app.firstWindow();
+    await page.getByRole("button", { name: "Архив", exact: true }).click();
     await page
       .getByRole("button", { name: "Открыть отчёт", exact: true })
       .click();

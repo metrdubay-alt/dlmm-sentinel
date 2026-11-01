@@ -2,6 +2,7 @@ import { test, expect, _electron as electron } from "@playwright/test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { holderPressure } from "../../shared/analysis/gmgn";
 test("BSC fixture: SVG fee asset, conversion, pool exclusion and independent history", async () => {
   const dir = await mkdtemp(path.join(tmpdir(), "sentinel-bsc-e2e-"));
   const env = Object.fromEntries(
@@ -57,31 +58,32 @@ test("BSC fixture: SVG fee asset, conversion, pool exclusion and independent his
       { address, pool },
     );
     const page = await app.firstWindow();
-    await page.getByRole("button", { name: "Настройки", exact: true }).click();
-    await page.getByLabel("Режим данных").selectOption("live");
+    await page.evaluate(async () =>
+      window.sentinel.saveSettings({
+        ...(await window.sentinel.settings(undefined)),
+        demoMode: false,
+      }),
+    );
+    await page.evaluate(
+      (address) => window.sentinel.gmgnOpen({ chain: "bsc", address }),
+      address,
+    );
+    await page.evaluate(
+      (address) => window.sentinel.gmgnCapture({ chain: "bsc", address }),
+      address,
+    );
+    await page.evaluate(async () =>
+      window.sentinel.saveSettings({
+        ...(await window.sentinel.settings(undefined)),
+        demoMode: true,
+      }),
+    );
+    await page.reload();
+    await page.getByLabel("Сеть карточки").selectOption("bsc");
+    await page.getByLabel("Адрес карточки").fill(address);
     await page
-      .getByRole("button", { name: "Сохранить настройки", exact: true })
+      .getByRole("button", { name: "Сохранить карточку", exact: true })
       .click();
-    await page
-      .getByRole("button", { name: "Числовой анализ GMGN", exact: true })
-      .click();
-    await page.getByLabel("Сеть GMGN").selectOption("bsc");
-    await page.getByLabel("Адрес токена GMGN").fill(address);
-    const opened = app.waitForEvent("window");
-    await page
-      .getByRole("button", { name: "Открыть GMGN", exact: true })
-      .click();
-    const remote = await opened;
-    await remote.waitForLoadState("domcontentloaded");
-    await expect(
-      page.getByRole("button", { name: "Прочитать и оценить", exact: true }),
-    ).toBeEnabled();
-    await page
-      .getByRole("button", { name: "Прочитать и оценить", exact: true })
-      .click();
-    await expect(
-      page.getByText("Снимок прочитан и сохранён.", { exact: true }),
-    ).toBeVisible();
     const rows = await page.evaluate(
       (address) => window.sentinel.gmgnHistory({ chain: "bsc", address }),
       address,
@@ -91,13 +93,18 @@ test("BSC fixture: SVG fee asset, conversion, pool exclusion and independent his
     expect(rows[0].metrics.totalFeesSolEquivalent.value).toBe(150);
     expect(rows[0].poolAddresses).toEqual([pool]);
     expect(rows[0].holders?.rows).toHaveLength(1);
-    await expect(
-      page.getByText(/Адреса пулов из ссылок GMGN исключены/),
-    ).toBeVisible();
-    await expect(page.getByText(/Курс CoinGecko: 1 BNB/)).toBeVisible();
-    await page.screenshot({ path: "test-results/bsc-numeric.png" });
-    await page.getByLabel("Сеть GMGN").selectOption("sol");
-    await expect(page.getByText(/Курс CoinGecko: 1 BNB/)).toHaveCount(0);
+    expect(rows[0].feeConversion).toMatchObject({
+      source: "CoinGecko",
+      nativeUsd: 600,
+      solUsd: 120,
+    });
+    expect(holderPressure(rows[0]).byPosition).toEqual([]);
+    await expect(page.getByText("150", { exact: true }).first()).toBeVisible();
+    await page
+      .getByRole("button", { name: "Новый токен", exact: true })
+      .click();
+    await page.getByLabel("Сеть карточки").selectOption("sol");
+    await expect(page.getByText("150", { exact: true })).toHaveCount(0);
     expect(
       await page.evaluate(() =>
         window.sentinel.gmgnHistory({

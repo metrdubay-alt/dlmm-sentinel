@@ -77,6 +77,7 @@ test("transfer fee warning persists without GMGN and stays marked stale on RPC f
         }),
       target,
     );
+    await page.getByText("Настройки режима", { exact: true }).click();
     await page.getByLabel("Режим данных").selectOption("live");
     await expect(page.getByLabel("Режим данных")).toBeEnabled();
     const result = await page.evaluate(

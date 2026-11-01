@@ -2,6 +2,8 @@ import { test, expect, _electron as electron } from "@playwright/test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { holderPressure, gmgnStrategyInput } from "../../shared/analysis/gmgn";
+import { assessStrategy } from "../../shared/analysis/strategy";
 test("GMGN fixture: precise top10, numeric report, history, isolated window and demo gate", async () => {
   const dir = await mkdtemp(path.join(tmpdir(), "sentinel-gmgn-e2e-"));
   const env = Object.fromEntries(
@@ -79,36 +81,44 @@ test("GMGN fixture: precise top10, numeric report, history, isolated window and 
         });
     }, address);
     const page = await app.firstWindow();
+    await page.evaluate(async () =>
+      window.sentinel.saveSettings({
+        ...(await window.sentinel.settings(undefined)),
+        demoMode: true,
+      }),
+    );
+    expect(
+      await page.evaluate(async (address) => {
+        try {
+          await window.sentinel.gmgnOpen({ chain: "sol", address });
+          return false;
+        } catch {
+          return true;
+        }
+      }, address),
+    ).toBe(true);
+    await page.reload();
+    await page.getByLabel("Адрес карточки").fill(address);
     await page
-      .getByRole("button", { name: "Числовой анализ GMGN", exact: true })
+      .getByRole("button", { name: "Сохранить карточку", exact: true })
       .click();
-    await expect(
-      page.getByRole("button", { name: "Открыть GMGN", exact: true }),
-    ).toBeDisabled();
-    await page.getByRole("button", { name: "Настройки", exact: true }).click();
+    await page.getByText("Настройки режима", { exact: true }).click();
     await page.getByLabel("Режим данных").selectOption("live");
-    await page
-      .getByRole("button", { name: "Сохранить настройки", exact: true })
-      .click();
-    await page
-      .getByRole("button", { name: "Числовой анализ GMGN", exact: true })
-      .click();
-    await page.getByLabel("Адрес токена GMGN").fill(address);
+    await expect(page.getByLabel("Режим данных")).toBeEnabled();
     const opened = app.waitForEvent("window");
-    await page
-      .getByRole("button", { name: "Открыть GMGN", exact: true })
-      .click();
+    await page.evaluate(
+      (address) => window.sentinel.gmgnOpen({ chain: "sol", address }),
+      address,
+    );
     const remote = await opened;
     await remote.waitForLoadState("domcontentloaded");
     expect(await remote.evaluate(() => typeof window.sentinel)).toBe(
       "undefined",
     );
-    await page
-      .getByRole("button", { name: "Прочитать и оценить", exact: true })
-      .click();
-    await expect(
-      page.getByRole("heading", { name: "ПРОВЕРКА НЕ ЗАВЕРШЕНА", exact: true }),
-    ).toBeVisible();
+    await page.evaluate(
+      (address) => window.sentinel.gmgnCapture({ chain: "sol", address }),
+      address,
+    );
     await expect(
       page.getByText("21.52%", { exact: true }).first(),
     ).toBeVisible();
@@ -120,64 +130,45 @@ test("GMGN fixture: precise top10, numeric report, history, isolated window and 
     expect(rows[0].metrics.volume5mUsd.value).toBe(100001);
     expect(rows[0].chartRangeVolume?.volumeUsd.value).toBe(13_900_000);
     expect(rows[0].watchers?.value).toBe(13);
-    await expect(
-      page.getByText(
-        "Красный флаг: менее 100 наблюдателей GMGN (−10 баллов, не вето)",
-        { exact: true },
-      ),
-    ).toBeVisible();
+    expect(assessStrategy(gmgnStrategyInput(rows[0])).redFlags).toContain(
+      "WATCHERS_RED",
+    );
     expect(rows[0].displayedPoolLiquidity?.value).toBe(50000);
     expect(rows[0].holders?.rows).toHaveLength(1);
     expect(rows[0].holders?.rows[0].address).toBe(
       "HRo7TZ1gDNhjTfoubRmFpyfZreGxqC1Sjet6w8TkD3R4",
     );
     expect(rows[0].holders?.rows[0].unrealizedRoiPct).toBe(1200.25);
-    await expect(
-      page.getByRole("heading", {
-        name: "Потенциальное давление продаж",
-        exact: true,
-      }),
-    ).toBeVisible();
-    await expect(
-      page.getByText("1200.25%", { exact: true }).first(),
-    ).toBeVisible();
-    await expect(
-      page.getByText("≈ 30.0%", { exact: true }).first(),
-    ).toBeVisible();
-    await page
-      .getByRole("heading", {
-        name: "Потенциальное давление продаж",
-        exact: true,
-      })
-      .scrollIntoViewIfNeeded();
-    await page.screenshot({ path: "test-results/holder-pressure.png" });
+    expect(holderPressure(rows[0]).byPosition[0].positionToPoolPct).toBe(30);
     await remote.locator("#top").evaluate((e) => {
       e.textContent = "23.08%";
     });
-    await page
-      .getByRole("button", { name: "Прочитать и оценить", exact: true })
-      .click();
-    await expect(
-      page.getByRole("heading", {
-        name: "ВЕТО · не проходит правила входа",
-        exact: true,
-      }),
-    ).toBeVisible();
+    await page.evaluate(
+      (address) => window.sentinel.gmgnCapture({ chain: "sol", address }),
+      address,
+    );
     rows = await page.evaluate(
       (address) => window.sentinel.gmgnHistory({ chain: "sol", address }),
       address,
     );
     expect(rows).toHaveLength(2);
     await page.screenshot({ path: "test-results/gmgn-numeric.png" });
-    await page.getByRole("button", { name: "Настройки", exact: true }).click();
-    await page.getByLabel("Режим данных").selectOption("mock");
-    await page
-      .getByRole("button", { name: "Сохранить настройки", exact: true })
-      .click();
+    expect(rows.at(-1)!.metrics.top10Pct.value).toBe(23.08);
+    expect(assessStrategy(gmgnStrategyInput(rows.at(-1)!)).vetoes).toContain(
+      "TOP10_22",
+    );
+    await page.evaluate(async () =>
+      window.sentinel.saveSettings({
+        ...(await window.sentinel.settings(undefined)),
+        demoMode: true,
+      }),
+    );
     await expect.poll(() => remote.isClosed()).toBe(true);
-    await page
-      .getByRole("button", { name: "Удалить локальные данные", exact: true })
-      .click();
+    expect(
+      await page.evaluate(() =>
+        window.sentinel.deleteData("DELETE_LOCAL_DATA"),
+      ),
+    ).toBe(true);
     await expect
       .poll(() =>
         page.evaluate(

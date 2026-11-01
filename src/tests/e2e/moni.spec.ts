@@ -40,22 +40,30 @@ test("Moni: isolated window, capture, persisted history and demo shutdown (fixtu
       );
     });
     const page = await app.firstWindow();
-    await page.getByRole("button", { name: "Настройки", exact: true }).click();
-    await expect(
-      page.getByRole("button", { name: "Открыть GetMoni", exact: true }),
-    ).toBeDisabled();
-    await page.getByLabel("Режим данных").selectOption("live");
-    await page
-      .getByRole("button", { name: "Сохранить настройки", exact: true })
-      .click();
-    await expect(
-      page.getByRole("button", { name: "Открыть GetMoni", exact: true }),
-    ).toBeEnabled();
-    await page.getByLabel("Аккаунт X для GetMoni").fill("ArtificiallyInu");
+    await page.evaluate(async () =>
+      window.sentinel.saveSettings({
+        ...(await window.sentinel.settings(undefined)),
+        demoMode: true,
+      }),
+    );
+    expect(
+      await page.evaluate(async () => {
+        try {
+          await window.sentinel.moniOpen("artificiallyinu");
+          return false;
+        } catch {
+          return true;
+        }
+      }),
+    ).toBe(true);
+    await page.evaluate(async () =>
+      window.sentinel.saveSettings({
+        ...(await window.sentinel.settings(undefined)),
+        demoMode: false,
+      }),
+    );
     const opened = app.waitForEvent("window");
-    await page
-      .getByRole("button", { name: "Открыть GetMoni", exact: true })
-      .click();
+    await page.evaluate(() => window.sentinel.moniOpen("artificiallyinu"));
     const remote = await opened;
     await remote.waitForLoadState("domcontentloaded");
     expect(
@@ -64,30 +72,33 @@ test("Moni: isolated window, capture, persisted history and demo shutdown (fixtu
         bridge: typeof window.sentinel,
       })),
     ).toEqual({ node: "undefined", bridge: "undefined" });
-    await page
-      .getByRole("button", { name: "Считать показатели", exact: true })
-      .click();
-    await expect(page.getByText("2180", { exact: true }).first()).toBeVisible();
-    await expect(
-      page.getByText(/Доступные аккаунты \(1\): @blknoiz06/),
-    ).toBeVisible();
-    await page.getByLabel("Режим данных").selectOption("mock");
-    await page
-      .getByRole("button", { name: "Сохранить настройки", exact: true })
-      .click();
-    await expect(
-      page.getByRole("button", { name: "Открыть GetMoni", exact: true }),
-    ).toBeDisabled();
+    const captured = await page.evaluate(() =>
+      window.sentinel.moniCapture("artificiallyinu"),
+    );
+    expect(captured[0]).toMatchObject({ score: 2180, smarts: 183 });
+    expect(JSON.stringify(captured[0])).toContain("blknoiz06");
+    await page.evaluate(async () =>
+      window.sentinel.saveSettings({
+        ...(await window.sentinel.settings(undefined)),
+        demoMode: true,
+      }),
+    );
+    expect(
+      await page.evaluate(async () => {
+        try {
+          await window.sentinel.moniOpen("artificiallyinu");
+          return false;
+        } catch {
+          return true;
+        }
+      }),
+    ).toBe(true);
     await expect.poll(() => remote.isClosed()).toBe(true);
     const rows = await page.evaluate(() =>
       window.sentinel.moniHistory("artificiallyinu"),
     );
     expect(rows).toHaveLength(1);
     expect(rows[0].score).toBe(2180);
-    await page
-      .getByRole("heading", { name: "GetMoni · социальное внимание" })
-      .scrollIntoViewIfNeeded();
-    await page.screenshot({ path: "test-results/moni-panel.png" });
   } finally {
     await app.close();
     await rm(dir, { recursive: true, force: true });

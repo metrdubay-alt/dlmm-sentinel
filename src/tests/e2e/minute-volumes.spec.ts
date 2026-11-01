@@ -51,7 +51,7 @@ test("ten completed SOL minute volumes persist and follow the selected profile",
             });
           }
           return new Response(
-            `<div id="GlobalScrollDomId"><a href="https://solscan.io/token/${target.address}">Token</a></div>`,
+            `<div id="GlobalScrollDomId"><a href="https://solscan.io/token/${target.address}">Token</a><div data-sentry-component="InfoItem"><span class="info-item-title">Holders</span><span class="info-item-value">1,000</span></div></div>`,
             { headers: { "content-type": "text/html" } },
           );
         });
@@ -129,7 +129,9 @@ test("ten completed SOL minute volumes persist and follow the selected profile",
     await expect(block).not.toContainText("Минимальный объём");
     await expect(block).not.toContainText("Пересчёт");
     await block.screenshot({ path: "test-results/minute-volumes.png" });
-    await block.locator("xpath=ancestor::section[1]").screenshot({ path: "test-results/numeric-layout.png" });
+    await block
+      .locator("xpath=ancestor::section[1]")
+      .screenshot({ path: "test-results/numeric-layout.png" });
     await page
       .getByLabel("Профиль оценки", { exact: true })
       .selectOption("slowcook");

@@ -45,7 +45,7 @@ test("one new-token button runs GMGN Grok X Moni and pools", async () => {
   document.querySelector('button').addEventListener('click',()=>{sent++;document.body.dataset.sent=String(sent);const prompt=t.value;t.value='';document.querySelector('#chat').textContent=prompt;
   if(${JSON.stringify(mode)}==='wait')return;
   const sample=JSON.parse(prompt.split('по этой форме: ')[1].split('\\nДля каждого')[0]);
-  const answer={...sample,relatedAccounts:[{handle:'recipient',role:'fee_recipient',source:'https://example.com/token'}],discoveredProfile:{handle:'example',sources:['https://x.com/example/status/123']},tokenSymbol:'DEMO',description:'ДЕМО-ДАННЫЕ: найден независимый интерес',score:62,scoreReason:'Оценка Grok по тестовым источникам',narrative:'stable',sources:['https://x.com/example/status/123'],redFlags:[{text:'ДЕМО: повторяющиеся промо-посты',sources:['https://x.com/example/status/123']}]};
+  const answer={...sample,relatedAccounts:[{handle:'recipient',role:'fee_recipient',source:'https://example.com/token'}],discoveredProfile:{handle:'example',sources:['https://x.com/example/status/123']},tokenSymbol:'DEMO',description:'ДЕМО-ДАННЫЕ: найден независимый интерес',score:62,scoreReason:'Оценка Grok по тестовым источникам',narrative:'stable',sources:['https://x.com/example/status/123','https://x.com/recipient/status/123'],redFlags:[{text:'ДЕМО: повторяющиеся промо-посты',sources:['https://x.com/example/status/123']}]};
   const block=document.createElement('div');const content=document.createElement('pre');content.textContent=JSON.stringify(answer);content.innerHTML=content.innerHTML.replace('независимый интерес','независимый <span style="display:block">интерес</span>');block.append(content);const actions=document.createElement('div');actions.innerHTML='<button aria-label="Copy text">Copy</button><button aria-label="Regenerate">Regenerate</button>';block.append(actions);document.querySelector('#chat').append(block);
   });</script></main>`,
             { headers: { "content-type": "text/html; charset=utf-8" } },
@@ -61,13 +61,20 @@ test("one new-token button runs GMGN Grok X Moni and pools", async () => {
     });
     await install("answer");
     await app.evaluate(({ session }, target) => {
+      session.fromPartition("persist:sentinel-fabriq").protocol.handle(
+        "https",
+        () =>
+          new Response("<main>Fixture: no matching pool fees</main>", {
+            headers: { "content-type": "text/html" },
+          }),
+      );
       session
         .fromPartition("persist:sentinel-gmgn")
         .protocol.handle(
           "https",
           () =>
             new Response(
-              `<div id="GlobalScrollDomId"><a href="https://bscscan.com/token/${target.address}">Token</a><div data-sentry-component="InfoItem"><span class="info-item-title">Top 10</span><span class="info-item-value">12%</span></div></div>`,
+              `<div id="GlobalScrollDomId"><a href="https://bscscan.com/token/${target.address}">Token</a><div data-sentry-component="InfoItem"><span class="info-item-title">Top 10</span><span class="info-item-value">12%</span></div><div data-sentry-component="InfoItem"><span class="info-item-title">Holders</span><span class="info-item-value">1,000</span></div></div>`,
               { headers: { "content-type": "text/html" } },
             ),
         );
@@ -130,6 +137,7 @@ test("one new-token button runs GMGN Grok X Moni and pools", async () => {
       };
     }, target);
     const page = await app.firstWindow();
+    await page.getByText("Настройки режима", { exact: true }).click();
     await page.getByLabel("Режим данных").selectOption("live");
     await page.evaluate(async () => {
       for (const source of ["gmgn", "x", "moni"] as const)
@@ -160,6 +168,7 @@ test("one new-token button runs GMGN Grok X Moni and pools", async () => {
     expect(report.moni?.score).toBe(100);
     expect(report.relatedMoni?.[0].snapshot?.handle).toBe("recipient");
     expect(report.relatedMoni?.[0].snapshot?.score).toBe(10949);
+    expect(report.relatedMoni?.[0].snapshot?.smarts).toBe(811);
     await expect(page.getByLabel("Moni Score аккаунтов")).toContainText(
       "Получатель комиссий",
     );
@@ -174,9 +183,20 @@ test("one new-token button runs GMGN Grok X Moni and pools", async () => {
       await app.evaluate(({ BrowserWindow }) =>
         BrowserWindow.getAllWindows()
           .filter((w) => w.webContents.getURL().startsWith("https:"))
-          .map((w) => w.isVisible()),
+          .map((w) => ({ url: w.webContents.getURL(), visible: w.isVisible() }))
+          .sort((a, b) => a.url.localeCompare(b.url)),
       ),
-    ).toEqual([false, false, false, false]);
+    ).toEqual(
+      [
+        `https://gmgn.ai/bsc/token/${target.address}`,
+        "https://x.com/example",
+        "https://x.com/i/grok",
+        "https://app.moni.ai/recipient",
+        "https://fabriq.trade/trending",
+      ]
+        .sort((a, b) => a.localeCompare(b))
+        .map((url) => ({ url, visible: false })),
+    );
     await page.bringToFront();
     await page.screenshot({
       path: "test-results/new-token-analysis.png",

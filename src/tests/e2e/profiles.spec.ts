@@ -50,6 +50,7 @@ test("profiles persist thresholds, colour flags, selection and token age", async
         }),
       target,
     );
+    await page.getByText("Настройки режима", { exact: true }).click();
     await page.getByLabel("Режим данных").selectOption("live");
     await expect(page.getByLabel("Режим данных")).toBeEnabled();
     await page.evaluate(

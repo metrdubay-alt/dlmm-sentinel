@@ -2,7 +2,7 @@ import { test, expect, _electron as electron } from "@playwright/test";
 import { mkdtemp, writeFile, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-test("live режим, отключённые источники, защищённый импорт и экспорт без секретов", async () => {
+test("IPC settings/credentials and live scan; report UI and export without secrets", async () => {
   const dir = await mkdtemp(path.join(tmpdir(), "sentinel-live-e2e-"));
   const env: Record<string, string> = {
     ...Object.fromEntries(
@@ -52,47 +52,54 @@ test("live режим, отключённые источники, защищён
       { input, output },
     );
     const page = await app.firstWindow();
-    await page.getByRole("button", { name: "Настройки", exact: true }).click();
-    await page
-      .getByRole("button", { name: "Импорт API-настроек", exact: true })
-      .click();
-    await expect(page.getByText(/RPC: личный endpoint/)).toBeVisible();
-    await expect(page.getByText(/X: ключ сохранён/)).toBeVisible();
+    expect(
+      await page.evaluate(() => window.sentinel.importCredentials(undefined)),
+    ).toMatchObject({ rpcConfigured: true, xConfigured: true, error: false });
     expect(
       (await readFile(path.join(dir, "api-credentials.enc"))).includes(
         Buffer.from(key),
       ),
     ).toBe(false);
     expect(await page.locator("body").innerText()).not.toContain(key);
-    await page.getByLabel("Режим данных").selectOption("live");
-    for (const name of [
-      "Solana RPC",
-      "Крупнейшие token accounts",
-      "DexScreener",
-      "RugCheck",
-      "Meteora DLMM",
-      "X · поиск упоминаний mint",
-      "GMGN · кошельки и метрики",
-      "Bubblemaps · кластеры",
-    ])
-      await page.getByLabel(name, { exact: true }).uncheck();
+    const settings = await page.evaluate(async () => {
+      const current = await window.sentinel.settings(undefined);
+      return window.sentinel.saveSettings({
+        ...current,
+        demoMode: false,
+        liveMeteora: false,
+        liveGmgn: false,
+        liveBubblemaps: false,
+        providers: {
+          chain: false,
+          holders: false,
+          market: false,
+          scanner: false,
+          social: false,
+          url: false,
+          legitimacy: false,
+          timing: false,
+        },
+      });
+    });
+    expect(Object.values(settings.providers)).toEqual(Array(8).fill(false));
+    await page.evaluate(() =>
+      window.sentinel.scan({
+        mint: "So11111111111111111111111111111111111111112",
+        scenario: "insufficient",
+        mode: "quick",
+        dataMode: "live",
+      }),
+    );
+    await page.reload();
+    await page.getByRole("button", { name: "Архив", exact: true }).click();
     await page
-      .getByRole("button", { name: "Сохранить настройки", exact: true })
-      .click();
-    await expect(page.getByRole("status")).toContainText("Настройки сохранены");
-    await page
-      .getByRole("button", { name: "Анализ токена", exact: true })
-      .click();
-    await expect(page.getByLabel("Демонстрационный сценарий")).toHaveCount(0);
-    await page
-      .getByRole("button", { name: "Пример: Wrapped SOL", exact: true })
-      .click();
-    await page
-      .getByRole("button", { name: "Анализировать токен", exact: true })
+      .getByRole("button", { name: "Открыть отчёт", exact: true })
+      .first()
       .click();
     await expect(
       page.getByRole("heading", { name: "НУЖНА РУЧНАЯ ПРОВЕРКА", exact: true }),
     ).toBeVisible();
+    await expect(page.getByLabel("Демонстрационный сценарий")).toHaveCount(0);
     const report = (
       await page.evaluate(() => window.sentinel.reports(undefined))
     )[0];
@@ -109,11 +116,9 @@ test("live режим, отключённые источники, защищён
       path: "test-results/live-unavailable.png",
       fullPage: true,
     });
-    await page.getByRole("button", { name: "Настройки", exact: true }).click();
-    await page
-      .getByRole("button", { name: "Удалить API-настройки", exact: true })
-      .click();
-    await expect(page.getByText(/RPC: публичный endpoint/)).toBeVisible();
+    expect(
+      await page.evaluate(() => window.sentinel.clearCredentials(undefined)),
+    ).toMatchObject({ rpcConfigured: false, xConfigured: false, error: false });
   } finally {
     await app.close();
     await rm(dir, { recursive: true, force: true });
@@ -150,20 +155,25 @@ test("online smoke: реальный mint через production IPC", async () =
       });
     });
     const page = await app.firstWindow();
-    await page.getByRole("button", { name: "Настройки", exact: true }).click();
-    await page.getByLabel("Режим данных").selectOption("live");
+    await page.evaluate(async () =>
+      window.sentinel.saveSettings({
+        ...(await window.sentinel.settings(undefined)),
+        demoMode: false,
+      }),
+    );
+    await page.evaluate(() =>
+      window.sentinel.scan({
+        mint: "So11111111111111111111111111111111111111112",
+        scenario: "insufficient",
+        mode: "quick",
+        dataMode: "live",
+      }),
+    );
+    await page.reload();
+    await page.getByRole("button", { name: "Архив", exact: true }).click();
     await page
-      .getByRole("button", { name: "Сохранить настройки", exact: true })
-      .click();
-    await expect(page.getByRole("status")).toContainText("Настройки сохранены");
-    await page
-      .getByRole("button", { name: "Анализ токена", exact: true })
-      .click();
-    await page
-      .getByRole("button", { name: "Пример: Wrapped SOL", exact: true })
-      .click();
-    await page
-      .getByRole("button", { name: "Анализировать токен", exact: true })
+      .getByRole("button", { name: "Открыть отчёт", exact: true })
+      .first()
       .click();
     await expect(
       page.getByText("ОТЧЁТ · РЕАЛЬНЫЕ ИСТОЧНИКИ", { exact: true }),

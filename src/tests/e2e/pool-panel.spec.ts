@@ -98,6 +98,22 @@ test("ДЕМО-ДАННЫЕ: pool table switches ranking windows and never fetch
   });
   try {
     const page = await app.firstWindow();
+    await app.evaluate(({ dialog }) => {
+      dialog.showMessageBox = async () => ({
+        response: 1,
+        checkboxChecked: false,
+      });
+    });
+    await page.evaluate(async () =>
+      window.sentinel.saveSettings({
+        ...(await window.sentinel.settings(undefined)),
+        demoMode: true,
+      }),
+    );
+    expect(
+      (await page.evaluate(() => window.sentinel.settings(undefined))).demoMode,
+    ).toBe(true);
+    await page.reload();
     await page.getByRole("button", { name: "Архив", exact: true }).click();
     await page
       .getByRole("button", { name: "Открыть карточку", exact: true })

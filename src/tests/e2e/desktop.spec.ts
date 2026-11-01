@@ -19,6 +19,12 @@ test("настоящее окно Electron: ввод, veto, evidence, настр
     electron.launch({ args: executablePath ? [] : ["."], executablePath, env });
   let app = await launch();
   try {
+    await app.evaluate(({ dialog }) => {
+      dialog.showMessageBox = async () => ({
+        response: 1,
+        checkboxChecked: false,
+      });
+    });
     expect(await app.evaluate(({ app }) => app.getPath("userData"))).toBe(dir);
     const page = await app.firstWindow();
     await page.waitForLoadState("domcontentloaded");
@@ -127,6 +133,21 @@ test("все шесть fixtures доступны через настоящий 
   try {
     expect(await app.evaluate(({ app }) => app.getPath("userData"))).toBe(dir);
     const page = await app.firstWindow();
+    await app.evaluate(({ dialog }) => {
+      dialog.showMessageBox = async () => ({
+        response: 1,
+        checkboxChecked: false,
+      });
+    });
+    await page.evaluate(async () =>
+      window.sentinel.saveSettings({
+        ...(await window.sentinel.settings(undefined)),
+        demoMode: true,
+      }),
+    );
+    expect(
+      (await page.evaluate(() => window.sentinel.settings(undefined))).demoMode,
+    ).toBe(true);
     for (const [scenario, verdict] of [
       ["new-token", "ТОЛЬКО МИКРОРАЗМЕР"],
       ["concentration", "НЕ ВХОДИТЬ"],

@@ -51,6 +51,7 @@ test("Robinhood numeric card, delete confirmation, and source sessions survive r
   try {
     await fixtures();
     let page = await app.firstWindow();
+    await page.getByText("Настройки режима", { exact: true }).click();
     await page.getByLabel("Режим данных").selectOption("live");
     await expect(page.getByLabel("Режим данных")).toBeEnabled();
     const report = await page.evaluate(async (target) => {

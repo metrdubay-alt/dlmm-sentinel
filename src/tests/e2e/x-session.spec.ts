@@ -8,7 +8,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-test("X fixture session survives application exit and is erased by demo switch", async () => {
+test("X session survives exit and demo, closes windows, blocks refresh, and is erased by explicit deletion", async () => {
   const dir = await mkdtemp(path.join(tmpdir(), "sentinel-session-e2e-"));
   const env = Object.fromEntries(
     Object.entries(process.env).filter(
@@ -44,6 +44,7 @@ test("X fixture session survives application exit and is erased by demo switch",
         );
     });
     const page = await app.firstWindow();
+    await page.getByText("Настройки режима", { exact: true }).click();
     await page.getByLabel("Режим данных").selectOption("live");
     await expect(page.getByLabel("Режим данных")).toBeEnabled();
     await page.evaluate(async () => {
@@ -125,8 +126,47 @@ test("X fixture session survives application exit and is erased by demo switch",
       });
     });
     const reopened = await app.firstWindow();
+    await reopened.getByText("Настройки режима", { exact: true }).click();
     await reopened.getByLabel("Режим данных").selectOption("mock");
     await expect(reopened.getByLabel("Режим данных")).toBeEnabled();
+    expect(
+      await app.evaluate(async ({ session }) =>
+        (
+          await session
+            .fromPartition("persist:sentinel-x")
+            .cookies.get({ name: "sentinel_fixture" })
+        ).map((c) => c.value),
+      ),
+    ).toEqual(["DEMO_ONLY"]);
+    expect(
+      await app.evaluate(
+        ({ BrowserWindow }) =>
+          BrowserWindow.getAllWindows().filter((w) =>
+            w.webContents.getURL().startsWith("https:"),
+          ).length,
+      ),
+    ).toBe(0);
+    expect(
+      await reopened.evaluate(async () => {
+        try {
+          await window.sentinel.workspaceRefresh({
+            target: {
+              chain: "bsc",
+              address: "0xcafdbce93477261db8250e42bdae6e66733f9e20",
+            },
+            navigate: true,
+          });
+          return false;
+        } catch {
+          return true;
+        }
+      }),
+    ).toBe(true);
+    expect(
+      await reopened.evaluate(() =>
+        window.sentinel.deleteData("DELETE_LOCAL_DATA"),
+      ),
+    ).toBe(true);
     await expect
       .poll(async () =>
         app!.evaluate(

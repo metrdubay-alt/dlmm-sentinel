@@ -33,7 +33,7 @@ test("unified workspace: three isolated sources, persisted report, change alerts
         .fromPartition("persist:sentinel-gmgn")
         .protocol.handle("https", () =>
           html(
-            `<div id="GlobalScrollDomId"><a href="https://solscan.io/token/${address}">Token</a><div data-sentry-component="InfoItem"><span class="info-item-title">Top 10</span><span class="info-item-value" id="top">15%</span></div></div>`,
+            `<div id="GlobalScrollDomId"><a href="https://solscan.io/token/${address}">Token</a><div data-sentry-component="InfoItem"><span class="info-item-title">Top 10</span><span class="info-item-value" id="top">15%</span></div><div data-sentry-component="InfoItem"><span class="info-item-title">Holders</span><span class="info-item-value">1,000</span></div></div>`,
           ),
         );
       session
@@ -52,6 +52,7 @@ test("unified workspace: three isolated sources, persisted report, change alerts
         );
     }, address);
     const page = await app.firstWindow();
+    await page.getByText("Настройки режима", { exact: true }).click();
     await page.getByLabel("Режим данных").selectOption("mock");
     await expect(page.getByLabel("Режим данных")).toBeEnabled();
     await page
@@ -120,7 +121,7 @@ test("unified workspace: three isolated sources, persisted report, change alerts
     await expect(
       page.locator("code").filter({ hasText: "example.test" }),
     ).toBeVisible();
-    await expect(page.getByText(/GetMoni ·.*Score/)).toContainText("100");
+    await expect(page.getByLabel("Moni Score аккаунтов")).toContainText("100");
     let r = await page.evaluate(
       (t) => window.sentinel.workspaceReport(t),
       target,

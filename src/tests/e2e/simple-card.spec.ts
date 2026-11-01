@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { openDatabase } from "../../main/services/database";
 import { WorkspaceStore } from "../../main/services/workspace-store";
-test("two views, compact card, three analysis zones and archived analyzed tokens", async () => {
+test("three navigation views, compact card, three analysis zones and archived analyzed tokens", async () => {
   const dir = await mkdtemp(path.join(tmpdir(), "sentinel-simple-"));
   const target = {
     chain: "bsc" as const,
@@ -55,7 +55,24 @@ test("two views, compact card, three analysis zones and archived analyzed tokens
   });
   try {
     const page = await app.firstWindow();
-    await expect(page.locator("nav button")).toHaveCount(2);
+    await app.evaluate(({ dialog }) => {
+      dialog.showMessageBox = async () => ({
+        response: 1,
+        checkboxChecked: false,
+      });
+    });
+    await page.evaluate(async () =>
+      window.sentinel.saveSettings({
+        ...(await window.sentinel.settings(undefined)),
+        demoMode: true,
+      }),
+    );
+    await page.reload();
+    await expect(page.locator("nav button")).toHaveText([
+      "Карточка токена",
+      "Архив",
+      "Профили",
+    ]);
     await expect(
       page.getByRole("button", { name: "Карточка токена", exact: true }),
     ).toBeVisible();

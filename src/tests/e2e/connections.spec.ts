@@ -41,6 +41,7 @@ test("account status is independent of open windows and quota; no token needed",
       }
     });
     const page = await app.firstWindow();
+    await page.getByText("Настройки режима", { exact: true }).click();
     await page.getByLabel("Режим данных").selectOption("live");
     for (const [source, label] of [
       ["x", "X"],
