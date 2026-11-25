@@ -1,4 +1,4 @@
-import { waitForGrokPage } from "./grok-navigation";
+import { isGrokAccountEntry, waitForGrokPage } from "./grok-navigation";
 import { readConnection } from "./source-connection";
 import { randomUUID } from "node:crypto";
 import type { BrowserWindow } from "electron";
@@ -82,6 +82,7 @@ export class GrokBrowser extends XBrowser {
       const u = new URL(this.window.webContents.getURL());
       if (
         this.busy ||
+        isGrokAccountEntry(u) ||
         (u.origin === "https://x.com" && u.pathname === "/i/grok")
       ) {
         this.window.show();

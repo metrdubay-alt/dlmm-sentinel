@@ -1,3 +1,9 @@
+export function isGrokAccountEntry(url: URL) {
+  return (
+    url.origin === "https://x.com" && url.pathname === "/i/jf/grok/entry"
+  );
+}
+
 export async function waitForGrokPage(options: {
   url: () => string;
   checkWindow: () => void;
@@ -18,12 +24,23 @@ export async function waitForGrokPage(options: {
       }
       if (u.origin === "https://x.com" && u.pathname === "/i/grok") return;
       if (
-        (u.hostname === "x.com" || u.hostname === "grok.com") &&
-        /\/login|\/i\/flow\/login|\/sign-in/.test(u.pathname)
+        ((u.origin === "https://x.com" || u.origin === "https://grok.com") &&
+          /\/login|\/sign-in/.test(u.pathname)) ||
+        (u.origin === "https://x.com" &&
+          u.pathname === "/i/jf/onboarding/web" &&
+          u.searchParams.get("mode") === "login")
       )
         throw new Error(
           "Требуется вход в X/Grok. Откройте Grok кнопкой входа.",
         );
+      if (isGrokAccountEntry(u)) {
+        if (tick === 10)
+          throw new Error(
+            "X открыл экран подключения Grok. Откройте Grok кнопкой входа и проверьте, доступен ли чат. Затем повторите анализ.",
+          );
+        await pause();
+        continue;
+      }
       // Only known landing/loading pages may settle or be reopened; never follow arbitrary URLs.
       const transitional =
         raw === "about:blank" ||

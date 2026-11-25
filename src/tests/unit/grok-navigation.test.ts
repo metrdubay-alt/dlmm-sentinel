@@ -2,6 +2,39 @@ import { describe, it, expect, vi } from "vitest";
 import { waitForGrokPage } from "../../main/services/grok-navigation";
 
 describe("Grok navigation recovery", () => {
+  it("waits for the X account entry to reach the Grok chat", async () => {
+    let url = "https://x.com/i/jf/grok/entry";
+    const recover = vi.fn();
+    await waitForGrokPage({
+      url: () => url,
+      checkWindow: () => {},
+      recover,
+      pause: async () => {
+        url = "https://x.com/i/grok";
+      },
+    });
+    expect(recover).not.toHaveBeenCalled();
+  });
+  it("asks the user to check the account screen if X stays there", async () => {
+    const recover = vi.fn();
+    await expect(
+      waitForGrokPage({
+        url: () => "https://x.com/i/jf/grok/entry",
+        checkWindow: () => {},
+        recover,
+        pause: async () => {},
+      }),
+    ).rejects.toThrow("X открыл экран подключения Grok");
+    expect(recover).not.toHaveBeenCalled();
+  });
+  it("recognizes the X onboarding login redirect", async () => {
+    await expect(
+      waitForGrokPage({
+        url: () => "https://x.com/i/jf/onboarding/web?mode=login",
+        checkWindow: () => {},
+      }),
+    ).rejects.toThrow("Требуется вход в X/Grok");
+  });
   it("waits for a transient landing page without reopening", async () => {
     let url = "https://x.com/home";
     const recover = vi.fn();
@@ -54,6 +87,7 @@ describe("Grok navigation recovery", () => {
     "https://grok.com/login",
     "https://x.com/someone",
     "https://evil.test/i/grok",
+    "https://evil.test/i/jf/grok/entry",
   ])("does not recover login or unrelated page %s", async (url) => {
     const recover = vi.fn();
     await expect(
