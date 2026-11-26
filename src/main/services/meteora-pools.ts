@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { GmgnTarget } from "../../shared/analysis/gmgn";
 import {
+  meteoraPoolTypeSchema,
   poolSnapshotSchema,
   type PoolRow,
 } from "../../shared/analysis/pool-snapshot";
@@ -8,7 +9,7 @@ const mint = z.string().regex(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/);
 const token = z.object({ address: mint, symbol: z.string() });
 const discovered = z.object({
   pool_address: mint,
-  pool_type: z.enum(["dlmm", "damm_v2"]),
+  pool_type: meteoraPoolTypeSchema,
   token_x: token,
   token_y: token,
   tvl: z.number().nonnegative().nullable(),
@@ -22,6 +23,14 @@ const discovery = z.object({
   after_key: z.string().nullable().optional(),
 });
 const DETAIL_POOL_LIMIT = 20;
+const poolSources = {
+  dlmm: { host: "dlmm.datapi.meteora.ag", name: "Meteora DLMM" },
+  dlmm_pro: { host: "dlmm-pro.datapi.meteora.ag", name: "Meteora DLMM Pro" },
+  damm_v2: { host: "damm-v2.datapi.meteora.ag", name: "Meteora DAMM v2" },
+} as const satisfies Record<
+  z.infer<typeof meteoraPoolTypeSchema>,
+  { host: string; name: string }
+>;
 export function meteoraVolumes(raw: unknown, end: number) {
   const r = z
     .object({
@@ -98,10 +107,8 @@ export async function captureMeteora(
     rows.push(
       ...(await Promise.all(
         candidates.slice(i, i + 3).map(async (p) => {
-          const base =
-            p.pool_type === "dlmm"
-              ? "https://dlmm.datapi.meteora.ag"
-              : "https://damm-v2.datapi.meteora.ag";
+          const source = poolSources[p.pool_type];
+          const base = `https://${source.host}`;
           const [meta, history] = await Promise.allSettled([
             get(`${base}/pools/${p.pool_address}`),
             get(
@@ -133,7 +140,7 @@ export async function captureMeteora(
               )
             ) {
               tvl = d.data.tvl;
-              if (p.pool_type === "dlmm") {
+              if (p.pool_type !== "damm_v2") {
                 fee = d.data.pool_config?.base_fee_pct ?? null;
                 dynamic = d.data.dynamic_fee_pct ?? null;
               }
@@ -159,7 +166,7 @@ export async function captureMeteora(
           return {
             address: p.pool_address,
             name: `${p.token_x.symbol} / ${p.token_y.symbol}`,
-            dex: p.pool_type === "dlmm" ? "Meteora DLMM" : "Meteora DAMM v2",
+            dex: source.name,
             poolType: p.pool_type,
             binStep: p.dlmm_params?.bin_step ?? null,
             tvlUsd: tvl,

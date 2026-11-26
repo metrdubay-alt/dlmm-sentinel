@@ -23,64 +23,84 @@ it("matches spreadsheet windows, excludes current boundary and rejects duplicate
     meteoraVolumes({ start_time: 1, end_time: 3600, data }, 3600),
   ).toThrow();
 });
-it("uses direct discovery, actual 5m volumes, dynamic fee and active TVL", async () => {
-  const token_x = { address, symbol: "DEMO" },
-    token_y = {
-      address: "So11111111111111111111111111111111111111112",
-      symbol: "SOL",
-    };
-  const requests: string[] = [];
-  const fetcher = (async (input: string | URL | Request) => {
-    const u = new URL(String(input));
-    requests.push(u.href);
-    if (u.hostname.startsWith("pool-discovery"))
+it.each([
+  ["dlmm", "dlmm.datapi.meteora.ag", "Meteora DLMM"],
+  ["dlmm_pro", "dlmm-pro.datapi.meteora.ag", "Meteora DLMM Pro"],
+] as const)(
+  "uses the correct %s API and calculates pool efficiency",
+  async (poolType, host, dex) => {
+    const token_x = { address, symbol: "DEMO" },
+      token_y = {
+        address: "So11111111111111111111111111111111111111112",
+        symbol: "SOL",
+      };
+    const requests: string[] = [];
+    const fetcher = (async (input: string | URL | Request) => {
+      const u = new URL(String(input));
+      requests.push(u.href);
+      if (u.hostname.startsWith("pool-discovery"))
+        return Response.json({
+          has_more: false,
+          data: [
+            {
+              pool_address: pool,
+              pool_type: poolType,
+              token_x,
+              token_y,
+              tvl: 10000,
+              active_tvl: 5000,
+              fee_pct: 2,
+              dlmm_params: poolType === "dlmm" ? { bin_step: 100 } : null,
+            },
+            {
+              pool_address: address,
+              pool_type: "damm_v2",
+              token_x,
+              token_y,
+              tvl: 500,
+              active_tvl: null,
+              fee_pct: null,
+            },
+          ],
+        });
+      if (u.hostname !== host) return new Response(null, { status: 404 });
+      if (u.pathname.endsWith("/history")) {
+        const end = Number(u.searchParams.get("end_time"));
+        return Response.json({
+          start_time: end - 3600,
+          end_time: end,
+          data: Array.from({ length: 12 }, (_, i) => ({
+            timestamp: end - (i + 1) * 300,
+            volume: 100,
+          })),
+        });
+      }
       return Response.json({
-        has_more: false,
-        data: [
-          {
-            pool_address: pool,
-            pool_type: "dlmm",
-            token_x,
-            token_y,
-            tvl: 10000,
-            active_tvl: 5000,
-            fee_pct: 2,
-            dlmm_params: { bin_step: 100 },
-          },
-        ],
+        address: pool,
+        token_x,
+        token_y,
+        tvl: 10000,
+        pool_config: { base_fee_pct: 2 },
+        dynamic_fee_pct: 0.5,
       });
-    if (u.pathname.endsWith("/history")) {
-      const end = Number(u.searchParams.get("end_time"));
-      return Response.json({
-        start_time: end - 3600,
-        end_time: end,
-        data: Array.from({ length: 12 }, (_, i) => ({
-          timestamp: end - (i + 1) * 300,
-          volume: 100,
-        })),
-      });
-    }
-    return Response.json({
-      address: pool,
-      token_x,
-      token_y,
-      tvl: 10000,
-      pool_config: { base_fee_pct: 2 },
-      dynamic_fee_pct: 0.5,
+    }) as typeof fetch;
+    const r = await captureMeteora({ chain: "sol", address }, fetcher);
+    expect(r.source).toBe("Meteora");
+    expect(r.discoveredCount).toBe(2);
+    expect(r.rows).toHaveLength(1);
+    expect(r.rows[0]).toMatchObject({
+      poolType,
+      dex,
+      binStep: poolType === "dlmm" ? 100 : null,
+      sum5mUsd: 100,
+      sum1hUsd: 1200,
+      activeTvlUsd: 5000,
+      efficiency5m: 0.05,
+      efficiency1h: 0.6,
     });
-  }) as typeof fetch;
-  const r = await captureMeteora({ chain: "sol", address }, fetcher);
-  expect(r.source).toBe("Meteora");
-  expect(r.rows).toHaveLength(1);
-  expect(r.rows[0]).toMatchObject({
-    sum5mUsd: 100,
-    sum1hUsd: 1200,
-    activeTvlUsd: 5000,
-    efficiency5m: 0.05,
-    efficiency1h: 0.6,
-  });
-  expect(requests.every((u) => u.includes("meteora.ag/"))).toBe(true);
-});
+    expect(requests.every((u) => u.includes("meteora.ag/"))).toBe(true);
+  },
+);
 
 it("keeps the highest-TVL pools when a token has more than 200 Meteora pools", async () => {
   const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";

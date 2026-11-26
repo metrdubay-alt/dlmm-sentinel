@@ -1,7 +1,11 @@
 import { useState, type CSSProperties } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, dateText } from "../lib/api";
-import { rankPools, poolNetwork } from "../../shared/analysis/pool-snapshot";
+import {
+  meteoraPoolPaths,
+  rankPools,
+  poolNetwork,
+} from "../../shared/analysis/pool-snapshot";
 import type { GmgnTarget } from "../../shared/analysis/gmgn";
 import type { StrategyMode } from "../../shared/analysis/strategy";
 import { poolFeeTone } from "../../shared/analysis/pool-fees";
@@ -217,7 +221,7 @@ export function PoolPanel({
                           onClick={() =>
                             void api.openExternal(
                               meteora
-                                ? `https://app.meteora.ag/${p.poolType === "dlmm" ? "dlmm" : "dammv2"}/${p.address}`
+                                ? `https://app.meteora.ag/${meteoraPoolPaths[p.poolType ?? "damm_v2"]}/${p.address}`
                                 : `https://www.geckoterminal.com/${poolNetwork(target)}/pools/${p.address}`,
                             )
                           }

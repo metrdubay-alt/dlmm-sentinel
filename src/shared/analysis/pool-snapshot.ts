@@ -2,6 +2,12 @@ import { z } from "zod";
 import { gmgnTargetSchema, type GmgnTarget } from "./gmgn";
 import { sumMinuteVolume, estimatePoolYield } from "./pool-yield";
 const amount = z.number().finite().nonnegative().nullable();
+export const meteoraPoolTypeSchema = z.enum(["dlmm", "dlmm_pro", "damm_v2"]);
+export const meteoraPoolPaths = {
+  dlmm: "dlmm",
+  dlmm_pro: "dlmm-pro",
+  damm_v2: "dammv2",
+} as const satisfies Record<z.infer<typeof meteoraPoolTypeSchema>, string>;
 export const poolRowSchema = z.object({
   address: z.string().regex(/^[A-Za-z0-9]{20,100}$/),
   name: z.string().max(200),
@@ -9,7 +15,7 @@ export const poolRowSchema = z.object({
   tvlUsd: amount,
   feePct: z.number().min(0).max(100).nullable(),
   feeSource: z.enum(["field", "name", "missing"]),
-  poolType: z.enum(["dlmm", "damm_v2"]).optional(),
+  poolType: meteoraPoolTypeSchema.optional(),
   binStep: amount.optional(),
   activeTvlUsd: amount.optional(),
   dynamicFeePct: amount.optional(),
